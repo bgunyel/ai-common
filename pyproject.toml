@@ -15,9 +15,10 @@ dependencies = [
     "tqdm>=4.67.1",
 ]
 
-[project.scripts]
-ai-common = "ai_common:main"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+test = ["pytest<9,>=8"]
+lint = ["ruff<1.0,>=0.5"]

@@ -1,39 +1,17 @@
+import asyncio
 from io import BytesIO
+
 from PIL import Image
+from tavily import AsyncTavilyClient
+from ollama import Client
 
-from ollama import ListResponse, Client
-from tqdm import tqdm
+from .base import TavilySearchCategory
+from .tools import _check_and_pull_ollama_model
 
-
-def check_and_pull_ollama_model(model_name: str, ollama_url: str) -> None:
-    ollama_client = Client(host=ollama_url)
-    response: ListResponse = ollama_client.list()
-    available_model_names = [x.model for x in response.models]
-
-    # Modified from https://github.com/ollama/ollama-python/blob/main/examples/pull.py
-    if model_name not in available_model_names:
-        print(f'Pulling {model_name}')
-        current_digest, bars = '', {}
-        for progress in ollama_client.pull(model=model_name, stream=True):
-            digest = progress.get('digest', '')
-            if digest != current_digest and current_digest in bars:
-                bars[current_digest].close()
-
-            if not digest:
-                print(progress.get('status'))
-                continue
-
-            if digest not in bars and (total := progress.get('total')):
-                bars[digest] = tqdm(total=total, desc=f'pulling {digest[7:19]}', unit='B', unit_scale=True)
-
-            if completed := progress.get('completed'):
-                bars[digest].update(completed - bars[digest].n)
-
-            current_digest = digest
 
 
 def load_ollama_model(model_name: str, ollama_url: str) -> None:
-    check_and_pull_ollama_model(model_name=model_name, ollama_url=ollama_url)
+    _check_and_pull_ollama_model(model_name=model_name, ollama_url=ollama_url)
     ollama_client = Client(host=ollama_url)
     ollama_client.generate(model=model_name)  # Generate w/ prompt loads the model to memory
 
@@ -42,6 +20,44 @@ def get_flow_chart(rag_model):
     img_bytes = BytesIO(rag_model.graph.get_graph(xray=True).draw_mermaid_png())
     img = Image.open(img_bytes).convert("RGB")
     return img
+
+
+async def tavily_search_async(client: AsyncTavilyClient,
+                              search_queries: list[str],
+                              search_category: TavilySearchCategory,
+                              number_of_days_back: int,
+                              max_results: int = 5):
+    """
+    Performs concurrent web searches using the Tavily API.
+
+    Args:
+        client: Async Tavily Client
+        search_queries (Queries): List of search queries to process
+        search_category (str): Type of search to perform ('news' or 'general')
+        number_of_days_back (int): Number of days to look back for news articles (only used when tavily_topic='news')
+        max_results (int): The maximum number of search results to return. Default is 5.
+
+    Returns:
+        List[dict]: List of search results from Tavily API, one per query
+
+    Note:
+        For news searches, each result will include articles from the last `number_of_days_back` days.
+        For general searches, the time range is unrestricted.
+    """
+
+    kwargs = {
+        'max_results': max_results,
+        'include_raw_content': True,
+        'topic': search_category,
+    }
+    if search_category == 'news':
+        kwargs['days'] = number_of_days_back
+
+    # Execute all searches concurrently
+    search_tasks = [client.search(query=query, **kwargs) for query in search_queries]
+    search_docs = await asyncio.gather(*search_tasks)
+    return search_docs
+
 
 
 # Original version: https://github.com/langchain-ai/report-mAIstro/report_masitro.py#L89

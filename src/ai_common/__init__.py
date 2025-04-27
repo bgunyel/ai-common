@@ -1,6 +1,5 @@
 from .base import ConfigurationBase, TavilySearchCategory
-from .tools import tavily_search_async
-from .utils import load_ollama_model, get_flow_chart, deduplicate_and_format_sources
+from .utils import load_ollama_model, get_flow_chart, tavily_search_async, deduplicate_and_format_sources
 
 
 def main() -> None:

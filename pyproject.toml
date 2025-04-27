@@ -1,7 +1,7 @@
 [project]
 name = "ai-common"
 version = "0.1.0"
-description = "Add your description here"
+description = "Common classes and functions for AI code"
 readme = "README.md"
 authors = [
     { name = "Bertan Günyel", email = "bertan.gunyel@gmail.com" }

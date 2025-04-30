@@ -37,7 +37,7 @@ class GraphBase(ABC):
         pass
 
     @abstractmethod
-    def get_response(self, topic: str, verbose: bool = False):
+    def get_response(self, input_dict: dict[str, Any], verbose: bool = False):
         pass
 
     @abstractmethod

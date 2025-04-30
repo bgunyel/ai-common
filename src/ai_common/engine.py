@@ -1,6 +1,6 @@
-import time
 import os
 import datetime
+from typing import Any
 
 from .utils import load_ollama_model, get_flow_chart
 from .base import GraphBase
@@ -28,17 +28,9 @@ class Engine:
         flow_chart = get_flow_chart(rag_model=self.responder)
         flow_chart.save(os.path.join(save_to_folder, 'flow_chart.png'))
 
-    def get_response(self, user_message: str):
-        self.history.append({"role": "user", "content": user_message})
-        response = self.responder.get_response(topic=user_message, verbose=False)
+    def get_response(self, input_dict: dict[str, Any]):
+        self.history.append({"role": "user", "content": input_dict})
+        response = self.responder.get_response(input_dict=input_dict, verbose=False)
         self.history.append({"role": "assistant", "content": response})
         save_response(response=response, save_to_folder=self.save_to_folder)
         return response
-
-    def stream_response(self, user_message: str):
-        response = self.get_response(user_message=user_message)
-
-        for chunk in response.split():
-            chunk += ' '
-            yield chunk
-            time.sleep(0.05)

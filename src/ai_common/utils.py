@@ -9,7 +9,6 @@ from .base import TavilySearchCategory
 from .tools import _check_and_pull_ollama_model
 
 
-
 def load_ollama_model(model_name: str, ollama_url: str) -> None:
     _check_and_pull_ollama_model(model_name=model_name, ollama_url=ollama_url)
     ollama_client = Client(host=ollama_url)

@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass, field, fields
 from typing import Any, Optional, TypeAlias, Literal
+from abc import ABC, abstractmethod
 
 from langchain_core.runnables import RunnableConfig
 
@@ -27,3 +28,18 @@ class ConfigurationBase:
             if f.init
         }
         return cls(**{k: v for k, v in values.items() if v})
+
+
+
+class GraphBase(ABC):
+    @abstractmethod
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def get_response(self, topic: str, verbose: bool = False):
+        pass
+
+    @abstractmethod
+    def build_graph(self):
+        pass

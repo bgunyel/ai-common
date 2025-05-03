@@ -59,7 +59,7 @@ async def tavily_search_async(client: AsyncTavilyClient,
 
 
 
-# Original version: https://github.com/langchain-ai/report-mAIstro/report_masitro.py#L89
+# Modified from: https://github.com/langchain-ai/report-mAIstro/report_masitro.py#L89
 def deduplicate_and_format_sources(search_response: list[dict],
                                    max_tokens_per_source: int,
                                    include_raw_content: bool = True) -> str:
@@ -95,9 +95,10 @@ def deduplicate_and_format_sources(search_response: list[dict],
     # Format output
     formatted_text = "Sources:\n\n"
     for i, source in enumerate(unique_sources.values(), 1):
-        formatted_text += f"Source {source['title']}:\n===\n"
-        formatted_text += f"URL: {source['url']}\n===\n"
-        formatted_text += f"Most relevant content from source: {source['content']}\n===\n"
+        formatted_text += f"Source {i+1}:\n\n"
+        formatted_text += f'Title: {source["title"]}\n\n'
+        formatted_text += f"URL: {source['url']}\n\n"
+        formatted_text += f"Most relevant content from source:\n{source['content']}\n===========================\n\n"
         if include_raw_content:
             # Using rough estimate of 4 characters per token
             char_limit = max_tokens_per_source * 4

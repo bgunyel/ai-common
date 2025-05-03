@@ -95,7 +95,7 @@ def deduplicate_and_format_sources(search_response: list[dict],
     # Format output
     formatted_text = "Sources:\n\n"
     for i, source in enumerate(unique_sources.values(), 1):
-        formatted_text += f"Source {i+1}:\n\n"
+        formatted_text += f"Source {i}:\n\n"
         formatted_text += f'Title: {source["title"]}\n\n'
         formatted_text += f"URL: {source['url']}\n\n"
         formatted_text += f"Most relevant content from source:\n{source['content']}\n===========================\n\n"

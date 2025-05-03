@@ -4,6 +4,7 @@ from typing import Any, Optional, TypeAlias, Literal
 from abc import ABC, abstractmethod
 
 from langchain_core.runnables import RunnableConfig
+from pydantic import BaseModel
 
 
 TavilySearchCategory: TypeAlias = Literal['news', 'general']
@@ -43,3 +44,9 @@ class GraphBase(ABC):
     @abstractmethod
     def build_graph(self):
         pass
+
+
+class StateBase(BaseModel):
+    source_str: Optional[str] = None
+    steps: list[str]
+

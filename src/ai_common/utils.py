@@ -98,7 +98,7 @@ def deduplicate_and_format_sources(search_response: list[dict],
         formatted_text += f"Source {i}:\n\n"
         formatted_text += f'Title: {source["title"]}\n\n'
         formatted_text += f"URL: {source['url']}\n\n"
-        formatted_text += f"Most relevant content from source:\n{source['content']}\n===========================\n\n"
+        formatted_text += f"Most relevant content from source:\n{source['content']}\n==\n\n"
         if include_raw_content:
             # Using rough estimate of 4 characters per token
             char_limit = max_tokens_per_source * 4
@@ -109,6 +109,8 @@ def deduplicate_and_format_sources(search_response: list[dict],
                 print(f"Warning: No raw_content found for source {source['url']}")
             if len(raw_content) > char_limit:
                 raw_content = raw_content[:char_limit] + "... [truncated]"
-            formatted_text += f"Full source content limited to {max_tokens_per_source} tokens: {raw_content}\n\n"
+            formatted_text += f"Full source content limited to {max_tokens_per_source} tokens:\n {raw_content}\n\n"
+
+        formatted_text += '====================================\n\n'
 
     return formatted_text.strip()

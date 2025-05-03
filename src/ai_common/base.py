@@ -44,9 +44,3 @@ class GraphBase(ABC):
     @abstractmethod
     def build_graph(self):
         pass
-
-
-class StateBase(BaseModel):
-    search_queries: Optional[list[str]] = field(default=None)
-    source_str: Optional[str] = None
-    steps: list[str]

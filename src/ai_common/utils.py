@@ -58,10 +58,54 @@ async def tavily_search_async(client: AsyncTavilyClient,
     return search_docs
 
 
+def deduplicate_sources(search_response: list[dict]):
+    sources_list = []
+    for response in search_response:
+        if isinstance(response, dict) and 'results' in response:
+            sources_list.extend(response['results'])
+        else:
+            sources_list.extend(response)
+
+    # Deduplicate by URL
+    unique_sources = {}
+    for source in sources_list:
+        if source['url'] not in unique_sources:
+            unique_sources[source['url']] = source
+
+    return unique_sources
+
+
+def format_sources(unique_sources: dict,
+                   max_tokens_per_source: int = 5000,
+                   include_raw_content: bool = True) -> str:
+
+    # Format output
+    formatted_text = "Sources:\n\n"
+    for i, source in enumerate(unique_sources.values(), 1):
+        formatted_text += f"Source {i}:\n\n"
+        formatted_text += f'Title: {source["title"]}\n\n'
+        formatted_text += f"URL: {source['url']}\n\n"
+        formatted_text += f"Most relevant content from source:\n{source['content']}\n==\n\n"
+        if include_raw_content:
+            # Using rough estimate of 4 characters per token
+            char_limit = max_tokens_per_source * 4
+            # Handle None raw_content
+            raw_content = source.get('raw_content', '')
+            if raw_content is None:
+                raw_content = ''
+                # print(f"Warning: No raw_content found for source {source['url']}")
+            if len(raw_content) > char_limit:
+                raw_content = raw_content[:char_limit] + "... [truncated]"
+            formatted_text += f"Full source content limited to {max_tokens_per_source} tokens:\n {raw_content}\n\n"
+
+        formatted_text += '====================================\n\n'
+
+    return formatted_text.strip()
+
 
 # Modified from: https://github.com/langchain-ai/report-mAIstro/report_masitro.py#L89
 def deduplicate_and_format_sources(search_response: list[dict],
-                                   max_tokens_per_source: int,
+                                   max_tokens_per_source: int = 5000,
                                    include_raw_content: bool = True) -> str:
     """
     Takes either a single search response or list of responses from Tavily API and formats them.
@@ -79,38 +123,8 @@ def deduplicate_and_format_sources(search_response: list[dict],
         str: Formatted string with deduplicated sources
     """
 
-    sources_list = []
-    for response in search_response:
-        if isinstance(response, dict) and 'results' in response:
-            sources_list.extend(response['results'])
-        else:
-            sources_list.extend(response)
-
-    # Deduplicate by URL
-    unique_sources = {}
-    for source in sources_list:
-        if source['url'] not in unique_sources:
-            unique_sources[source['url']] = source
-
-    # Format output
-    formatted_text = "Sources:\n\n"
-    for i, source in enumerate(unique_sources.values(), 1):
-        formatted_text += f"Source {i}:\n\n"
-        formatted_text += f'Title: {source["title"]}\n\n'
-        formatted_text += f"URL: {source['url']}\n\n"
-        formatted_text += f"Most relevant content from source:\n{source['content']}\n==\n\n"
-        if include_raw_content:
-            # Using rough estimate of 4 characters per token
-            char_limit = max_tokens_per_source * 4
-            # Handle None raw_content
-            raw_content = source.get('raw_content', '')
-            if raw_content is None:
-                raw_content = ''
-                print(f"Warning: No raw_content found for source {source['url']}")
-            if len(raw_content) > char_limit:
-                raw_content = raw_content[:char_limit] + "... [truncated]"
-            formatted_text += f"Full source content limited to {max_tokens_per_source} tokens:\n {raw_content}\n\n"
-
-        formatted_text += '====================================\n\n'
-
-    return formatted_text.strip()
+    unique_sources = deduplicate_sources(search_response=search_response)
+    out_str = format_sources(unique_sources=unique_sources,
+                             max_tokens_per_source=max_tokens_per_source,
+                             include_raw_content=include_raw_content)
+    return out_str

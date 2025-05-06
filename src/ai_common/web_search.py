@@ -2,7 +2,7 @@ import asyncio
 from tavily import AsyncTavilyClient
 
 from .base import TavilySearchCategory
-from .utils import tavily_search_async, deduplicate_and_format_sources
+from .utils import tavily_search_async, deduplicate_and_format_sources, format_sources, deduplicate_sources
 
 
 class WebSearch:
@@ -19,7 +19,7 @@ class WebSearch:
         self.max_tokens_per_source = max_tokens_per_source
         self.include_raw_content = include_raw_content
 
-    def search(self, search_queries: list[str]) -> str:
+    def search(self, search_queries: list[str]) -> dict:
 
         search_docs = self.event_loop.run_until_complete(
             tavily_search_async(
@@ -30,8 +30,11 @@ class WebSearch:
             )
         )
 
+        unique_sources = deduplicate_sources(search_response=search_docs)
+        """
         source_str = deduplicate_and_format_sources(search_response=search_docs,
                                                     max_tokens_per_source=self.max_tokens_per_source,
                                                     include_raw_content=self.include_raw_content)
+        """
 
-        return source_str
+        return unique_sources

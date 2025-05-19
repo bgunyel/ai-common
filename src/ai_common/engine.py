@@ -2,8 +2,10 @@ import os
 import datetime
 from typing import Any
 
-from .utils import load_ollama_model, get_flow_chart
 from .base import GraphBase
+from .enums import LlmServers
+from .llm import load_ollama_model
+from .utils import get_flow_chart
 
 
 def save_response(response: str, save_to_folder: str):
@@ -15,10 +17,11 @@ def save_response(response: str, save_to_folder: str):
 
 
 class Engine:
-    def __init__(self, responder: GraphBase, models: list[str], ollama_url: str, save_to_folder: str):
+    def __init__(self, responder: GraphBase, llm_server: LlmServers, models: list[str], llm_base_url: str, save_to_folder: str):
 
-        for model in models:
-            load_ollama_model(model_name=model, ollama_url=f'{ollama_url}')
+        if llm_server == LlmServers.OLLAMA:
+            for model in models:
+                load_ollama_model(model_name=model, ollama_url=f'{llm_base_url}')
 
         self.history = []
         self.responder = responder

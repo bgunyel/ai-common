@@ -1,11 +1,9 @@
 import os
-from dataclasses import dataclass, field, fields
-from typing import Any, Optional, TypeAlias, Literal
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, fields
+from typing import Any, Optional, TypeAlias, Literal
 
 from langchain_core.runnables import RunnableConfig
-from pydantic import BaseModel
-
 
 TavilySearchCategory: TypeAlias = Literal['news', 'general']
 

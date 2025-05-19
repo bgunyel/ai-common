@@ -1,7 +1,8 @@
 from .base import ConfigurationBase, TavilySearchCategory, GraphBase
+from .enums import LlmServers
 from .engine import Engine
+from .llm import get_llm, load_ollama_model
 from .utils import (
-    load_ollama_model,
     get_flow_chart,
     tavily_search_async,
     deduplicate_and_format_sources,
@@ -11,11 +12,11 @@ from .utils import (
 from .web_search import WebSearch
 
 
-
 __all__ = [
     'ConfigurationBase',
     'TavilySearchCategory',
     'GraphBase',
+    'LlmServers',
     'Engine',
     'WebSearch',
     'tavily_search_async',
@@ -24,4 +25,5 @@ __all__ = [
     'deduplicate_and_format_sources',
     'deduplicate_sources',
     'format_sources',
+    'get_llm'
 ]

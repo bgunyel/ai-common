@@ -3,16 +3,8 @@ from io import BytesIO
 
 from PIL import Image
 from tavily import AsyncTavilyClient
-from ollama import Client
 
 from .base import TavilySearchCategory
-from .tools import _check_and_pull_ollama_model
-
-
-def load_ollama_model(model_name: str, ollama_url: str) -> None:
-    _check_and_pull_ollama_model(model_name=model_name, ollama_url=ollama_url)
-    ollama_client = Client(host=ollama_url)
-    ollama_client.generate(model=model_name)  # Generate w/ prompt loads the model to memory
 
 
 def get_flow_chart(rag_model):

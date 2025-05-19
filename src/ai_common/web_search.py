@@ -1,8 +1,9 @@
 import asyncio
+
 from tavily import AsyncTavilyClient
 
 from .base import TavilySearchCategory
-from .utils import tavily_search_async, deduplicate_and_format_sources, format_sources, deduplicate_sources
+from .utils import tavily_search_async, deduplicate_sources
 
 
 class WebSearch:

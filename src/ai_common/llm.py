@@ -26,6 +26,12 @@ def get_llm(llm_server: LlmServers, model_params: dict[str, Any]) -> BaseChatMod
                 temperature=0,
                 api_key=model_params['groq_api_key'],
             )
+        case LlmServers.OPENAI:
+            llm = ChatOpenAI(
+                model=model_params['model_name'],
+                temperature=0,
+                api_key=model_params['openai_api_key'],
+            )
         case LlmServers.OLLAMA:
             llm = ChatOllama(
                 model=model_params['model_name'],

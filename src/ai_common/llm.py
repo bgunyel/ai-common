@@ -3,6 +3,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
+from langchain_anthropic import ChatAnthropic
 from openai import OpenAI
 from ollama import Client
 
@@ -20,6 +21,14 @@ def get_llm(llm_server: LlmServers, model_params: dict[str, Any]) -> BaseChatMod
     llm_base_url = model_params.get('llm_base_url', '')
 
     match llm_server:
+        case LlmServers.ANTHROPIC:
+            llm = ChatAnthropic(
+                model_name=model_params['model_name'],
+                temperature=0,
+                api_key=model_params['anthropic_api_key'],
+                timeout=model_params['default_request_timeout'],
+                stop=model_params['stop_sequences']
+            )
         case LlmServers.GROQ:
             llm = ChatGroq(
                 model=model_params['model_name'],

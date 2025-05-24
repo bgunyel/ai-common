@@ -1,8 +1,9 @@
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
-from typing import Any, Optional, TypeAlias, Literal
+from typing import Any, Optional, TypeAlias, Literal, List
 
+from pydantic import BaseModel, Field
 from langchain_core.runnables import RunnableConfig
 
 TavilySearchCategory: TypeAlias = Literal['news', 'general']
@@ -42,3 +43,11 @@ class GraphBase(ABC):
     @abstractmethod
     def build_graph(self):
         pass
+
+
+class SearchQuery(BaseModel):
+    search_query: str = Field(None, description="Query for web search.")
+
+
+class Queries(BaseModel):
+    queries: List[SearchQuery] = Field(description="List of search queries.")

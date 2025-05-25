@@ -8,6 +8,7 @@ from .utils import (
     deduplicate_and_format_sources,
     deduplicate_sources,
     format_sources,
+    strip_thinking_tokens,
 )
 from .web_search import WebSearch
 
@@ -27,5 +28,6 @@ __all__ = [
     'deduplicate_and_format_sources',
     'deduplicate_sources',
     'format_sources',
-    'get_llm'
+    'strip_thinking_tokens',
+    'get_llm',
 ]

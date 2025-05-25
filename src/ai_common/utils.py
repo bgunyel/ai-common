@@ -120,3 +120,24 @@ def deduplicate_and_format_sources(search_response: list[dict],
                              max_tokens_per_source=max_tokens_per_source,
                              include_raw_content=include_raw_content)
     return out_str
+
+
+def strip_thinking_tokens(text: str) -> str:
+    """
+    NOTE: Original --> https://github.com/langchain-ai/local-deep-researcher/blob/main/src/ollama_deep_researcher/utils.py
+
+    Remove <think> and </think> tags and their content from the text.
+
+    Iteratively removes all occurrences of content enclosed in thinking tokens.
+
+    Args:
+        text (str): The text to process
+
+    Returns:
+        str: The text with thinking tokens and their content removed
+    """
+    while "<think>" in text and "</think>" in text:
+        start = text.find("<think>")
+        end = text.find("</think>") + len("</think>")
+        text = text[:start] + text[end:]
+    return text

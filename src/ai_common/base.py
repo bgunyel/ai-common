@@ -8,6 +8,18 @@ from langchain_core.runnables import RunnableConfig
 
 TavilySearchCategory: TypeAlias = Literal['news', 'general']
 
+
+class CfgBase(BaseModel):
+    thread_id: str
+
+    @classmethod
+    def from_runnable(cls, runnable: RunnableConfig):
+        required_fields = cls.model_json_schema()['required']
+        cfg = {f: runnable["configurable"][f] for f in required_fields}
+        configurable = cls(**cfg)
+        return configurable
+
+
 @dataclass(kw_only=True)
 class ConfigurationBase:
     """

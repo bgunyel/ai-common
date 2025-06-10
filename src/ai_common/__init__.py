@@ -1,4 +1,4 @@
-from .base import ConfigurationBase, TavilySearchCategory, GraphBase, SearchQuery, Queries
+from .base import CfgBase, ConfigurationBase, TavilySearchCategory, GraphBase, SearchQuery, Queries
 from .enums import LlmServers
 from .engine import Engine
 from .llm import get_llm, load_ollama_model
@@ -15,6 +15,7 @@ from .web_search import WebSearch
 
 
 __all__ = [
+    'CfgBase',
     'ConfigurationBase',
     'TavilySearchCategory',
     'GraphBase',

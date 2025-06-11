@@ -1,9 +1,10 @@
 from .base import CfgBase, ConfigurationBase, TavilySearchCategory, GraphBase, SearchQuery, Queries
-from .enums import LlmServers
+from .enums import LlmServers, NodeBase
 from .engine import Engine
 from .llm import get_llm, load_ollama_model
 from .price import PRICE_USD_PER_MILLION_TOKENS
 from .utils import (
+    get_config_from_runnable,
     get_flow_chart,
     tavily_search_async,
     deduplicate_and_format_sources,
@@ -17,6 +18,7 @@ from .web_search import WebSearch
 __all__ = [
     'CfgBase',
     'ConfigurationBase',
+    'NodeBase',
     'TavilySearchCategory',
     'GraphBase',
     'SearchQuery',
@@ -33,4 +35,5 @@ __all__ = [
     'format_sources',
     'strip_thinking_tokens',
     'get_llm',
+    'get_config_from_runnable',
 ]

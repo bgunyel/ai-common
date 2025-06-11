@@ -1,10 +1,19 @@
 import asyncio
 from io import BytesIO
+import importlib
 
 from PIL import Image
 from tavily import AsyncTavilyClient
+from langchain_core.runnables import RunnableConfig
 
-from .base import TavilySearchCategory
+from .base import TavilySearchCategory, CfgBase
+
+
+def get_config_from_runnable(configuration_module_prefix: str, config: RunnableConfig) -> CfgBase:
+    module = importlib.import_module(name=f'{configuration_module_prefix}')
+    class_ = getattr(module, 'Configuration')
+    configurable = class_.from_runnable(runnable=config)
+    return configurable
 
 
 def get_flow_chart(rag_model):

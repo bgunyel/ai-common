@@ -1,4 +1,5 @@
 import time
+import asyncio
 from typing import Any
 from pydantic import BaseModel
 from langchain_core.callbacks import get_usage_metadata_callback
@@ -48,25 +49,33 @@ class WebSearchNode:
         model_params['model_name'] = self.model_name
         self.base_llm = get_llm(llm_server=llm_server, model_params=model_params)
 
-    def summarize_source(self, topic: str, source_dict: dict[str, Any]) -> (str, str, dict[str, Any]):
+    async def summarize_source(self, topic: str, source_dict: dict[str, Any]) -> (str, str, dict[str, Any]):
         max_length = 102400  # 100K
         raw_content = source_dict['raw_content'][:max_length] if source_dict['raw_content'] is not None else source_dict['content']
         instructions = SUMMARIZER_INSTRUCTIONS.format(topic=topic, context=raw_content)
 
         with get_usage_metadata_callback() as cb:
-            summary = self.base_llm.invoke(instructions,
-                                           max_completion_tokens=32768,
-                                           temperature=0,
-                                           top_p=0.95)
+            summary = await self.base_llm.ainvoke(instructions,
+                                                  max_completion_tokens=32768,
+                                                   temperature=0,
+                                                   top_p=0.95)
             token_usage = {
                 'input_tokens': cb.usage_metadata[self.model_name]['input_tokens'],
                 'output_tokens': cb.usage_metadata[self.model_name]['output_tokens'],
             }
 
-        return raw_content, summary.content, token_usage
-
+        return {
+            'content': summary.content,
+            'token_usage': token_usage
+        }
 
     def run(self, state: BaseModel, config: RunnableConfig) -> BaseModel:
+        event_loop = asyncio.get_event_loop()
+        state = event_loop.run_until_complete(self.run_async(state=state, config=config))
+        return state
+
+
+    async def run_async(self, state: BaseModel, config: RunnableConfig) -> BaseModel:
         """
         Execute web searches, summarize content using LLM, and compile formatted results.
         
@@ -109,7 +118,7 @@ class WebSearchNode:
             config=config
         )
 
-        unique_sources = self.web_search.search(
+        unique_sources = await self.web_search.search(
             search_queries = [query.search_query for query in state.search_queries],
             search_category = configurable.search_category,
             number_of_days_back = configurable.number_of_days_back,
@@ -117,7 +126,7 @@ class WebSearchNode:
         )
 
         t1 = time.time()
-
+        """
         # TODO: This loop shall be async
         for k, v in unique_sources.items():
             raw_content, summary, token_usage = self.summarize_source(topic=state.topic, source_dict=v)
@@ -127,8 +136,17 @@ class WebSearchNode:
         """
         tasks = [self.summarize_source(topic=state.topic, source_dict=v) for v in unique_sources.values()]
         out = await asyncio.gather(*tasks)
-        """
 
+        state.token_usage[self.model_name]['input_tokens'] += sum([t['token_usage']['input_tokens'] for t in out])
+        state.token_usage[self.model_name]['output_tokens'] += sum([t['token_usage']['output_tokens'] for t in out])
+
+        unique_sources = {
+            url: {
+                'title': value['title'],
+                'content': summary['content']
+            }
+            for url, value, summary in zip(unique_sources.keys(), unique_sources.values(), out)
+        }
         t2 = time.time()
         print(f'Elapsed time: {t2 - t1} seconds')
 

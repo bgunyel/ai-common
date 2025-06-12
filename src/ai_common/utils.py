@@ -82,10 +82,10 @@ def format_sources(unique_sources: dict,
 
     # Format output
     formatted_text = "Sources:\n\n"
-    for i, source in enumerate(unique_sources.values(), 1):
+    for i, (url, source) in enumerate(unique_sources.items(), 1):
         formatted_text += f"Source {i}:\n\n"
         formatted_text += f'Title: {source["title"]}\n\n'
-        formatted_text += f"URL: {source['url']}\n\n"
+        formatted_text += f"URL: {url}\n\n"
         formatted_text += f"Most relevant content from source:\n{source['content']}\n==\n\n"
         if include_raw_content:
             # Using rough estimate of 4 characters per token

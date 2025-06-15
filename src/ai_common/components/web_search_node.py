@@ -57,8 +57,9 @@ class WebSearchNode:
         with get_usage_metadata_callback() as cb:
             summary = await self.base_llm.ainvoke(instructions,
                                                   max_completion_tokens=32768,
-                                                   temperature=0,
-                                                   top_p=0.95)
+                                                  temperature=0,
+                                                  top_p=0.95,
+                                                  service_tier="auto")  # TODO: For Groq only
             token_usage = {
                 'input_tokens': cb.usage_metadata[self.model_name]['input_tokens'],
                 'output_tokens': cb.usage_metadata[self.model_name]['output_tokens'],

@@ -81,7 +81,7 @@ class QueryWriter:
                                                         today=datetime.date.today().isoformat(),
                                                         number_of_queries=configurable.number_of_queries)
         with get_usage_metadata_callback() as cb:
-            results = self.structured_llm.invoke(instructions)
+            results = self.structured_llm.invoke(instructions, service_tier="auto")  # TODO: For Groq only
             state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name]['input_tokens']
             state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
         state.search_queries = results.queries

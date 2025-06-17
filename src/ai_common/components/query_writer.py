@@ -42,7 +42,7 @@ class QueryWriter:
             model=model_params['model'],
             model_provider=model_params['model_provider'],
             api_key=model_params['api_key'],
-            kwargs=model_params['model_args']
+            **model_params['model_args']
         )
         self.structured_llm = base_llm.with_structured_output(Queries)
 

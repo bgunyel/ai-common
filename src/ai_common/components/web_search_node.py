@@ -48,7 +48,7 @@ class WebSearchNode:
             model=model_params['model'],
             model_provider=model_params['model_provider'],
             api_key=model_params['api_key'],
-            kwargs=model_params['model_args']
+           **model_params['model_args']
         )
 
     async def summarize_source(self, topic: str, source_dict: dict[str, Any]) -> (str, str, dict[str, Any]):

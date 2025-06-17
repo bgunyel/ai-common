@@ -1,10 +1,11 @@
 import datetime
-from typing import Any
+from typing import Any, Final
+from langchain.chat_models import init_chat_model
 from langchain_core.runnables import RunnableConfig
 from langchain_core.callbacks import get_usage_metadata_callback
 from pydantic import BaseModel
 
-from ai_common import LlmServers, Queries, get_llm, get_config_from_runnable, NodeBase
+from ai_common import Queries, get_config_from_runnable, NodeBase
 
 QUERY_WRITER_INSTRUCTIONS = """
 Your goal is to generate targeted web search queries that will gather comprehensive information for writing a summary about a topic.
@@ -34,14 +35,11 @@ Generate targeted web search queries that will gather specific information about
 
 
 class QueryWriter:
-    def __init__(self, llm_server: LlmServers, model_params: dict[str, Any], configuration_module_prefix: str):
-        self.model_name = model_params['language_model']
-        self.configuration_module_prefix = configuration_module_prefix
-
-        model_params['model_name'] = self.model_name
-        base_llm = get_llm(llm_server=llm_server, model_params=model_params)
+    def __init__(self, model_params: dict[str, Any], configuration_module_prefix: str):
+        self.model_name = model_params['model']
+        self.configuration_module_prefix: Final = configuration_module_prefix
+        base_llm = init_chat_model(kwargs=model_params)
         self.structured_llm = base_llm.with_structured_output(Queries)
-
 
     def run(self, state: BaseModel, config: RunnableConfig) -> BaseModel:
         """
@@ -81,7 +79,7 @@ class QueryWriter:
                                                         today=datetime.date.today().isoformat(),
                                                         number_of_queries=configurable.number_of_queries)
         with get_usage_metadata_callback() as cb:
-            results = self.structured_llm.invoke(instructions, service_tier="auto")  # TODO: For Groq only
+            results = self.structured_llm.invoke(instructions)
             state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name]['input_tokens']
             state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
         state.search_queries = results.queries

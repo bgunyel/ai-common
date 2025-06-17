@@ -1,15 +1,14 @@
 import time
 import asyncio
-from typing import Any
+from typing import Any, Final
 from pydantic import BaseModel
+from langchain.chat_models import init_chat_model
 from langchain_core.callbacks import get_usage_metadata_callback
 from langchain_core.runnables import RunnableConfig
 
 from ai_common import (
     WebSearch,
     format_sources,
-    LlmServers,
-    get_llm,
     get_config_from_runnable,
     NodeBase,
 )
@@ -40,14 +39,12 @@ Include all necessary information related with the topic in your summary.
 class WebSearchNode:
     def __init__(self,
                  web_search_api_key: str,
-                 llm_server: LlmServers,
                  model_params: dict[str, Any],
                  configuration_module_prefix: str):
         self.web_search = WebSearch(api_key=web_search_api_key)
-        self.configuration_module_prefix = configuration_module_prefix
-        self.model_name = model_params['language_model']
-        model_params['model_name'] = self.model_name
-        self.base_llm = get_llm(llm_server=llm_server, model_params=model_params)
+        self.configuration_module_prefix: Final = configuration_module_prefix
+        self.model_name = model_params['model']
+        self.base_llm = init_chat_model(kwargs=model_params)
 
     async def summarize_source(self, topic: str, source_dict: dict[str, Any]) -> (str, str, dict[str, Any]):
         max_length = 102400  # 100K
@@ -55,11 +52,7 @@ class WebSearchNode:
         instructions = SUMMARIZER_INSTRUCTIONS.format(topic=topic, context=raw_content)
 
         with get_usage_metadata_callback() as cb:
-            summary = await self.base_llm.ainvoke(instructions,
-                                                  max_completion_tokens=32768,
-                                                  temperature=0,
-                                                  top_p=0.95,
-                                                  service_tier="auto")  # TODO: For Groq only
+            summary = await self.base_llm.ainvoke(instructions)
             token_usage = {
                 'input_tokens': cb.usage_metadata[self.model_name]['input_tokens'],
                 'output_tokens': cb.usage_metadata[self.model_name]['output_tokens'],

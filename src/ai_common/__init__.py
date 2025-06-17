@@ -1,7 +1,7 @@
 from .base import CfgBase, ConfigurationBase, TavilySearchCategory, GraphBase, SearchQuery, Queries
 from .enums import LlmServers, NodeBase
 from .engine import Engine
-from .llm import get_llm, load_ollama_model
+from .llm import load_ollama_model
 from .price import PRICE_USD_PER_MILLION_TOKENS
 from .utils import (
     get_config_from_runnable,
@@ -34,6 +34,5 @@ __all__ = [
     'deduplicate_sources',
     'format_sources',
     'strip_thinking_tokens',
-    'get_llm',
     'get_config_from_runnable',
 ]

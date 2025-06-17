@@ -124,15 +124,6 @@ class WebSearchNode:
             max_results_per_query = configurable.max_results_per_query,
         )
 
-        t1 = time.time()
-        """
-        # TODO: This loop shall be async
-        for k, v in unique_sources.items():
-            raw_content, summary, token_usage = self.summarize_source(topic=state.topic, source_dict=v)
-            state.token_usage[self.model_name]['input_tokens'] += token_usage['input_tokens']
-            state.token_usage[self.model_name]['output_tokens'] += token_usage['output_tokens']
-            unique_sources[k]['content'] = summary
-        """
         tasks = [self.summarize_source(topic=state.topic, source_dict=v) for v in unique_sources.values()]
         out = await asyncio.gather(*tasks)
 
@@ -146,8 +137,6 @@ class WebSearchNode:
             }
             for url, value, summary in zip(unique_sources.keys(), unique_sources.values(), out)
         }
-        t2 = time.time()
-        print(f'Elapsed time: {t2 - t1} seconds')
 
         source_str = format_sources(unique_sources=unique_sources,
                                     max_tokens_per_source=configurable.max_tokens_per_source,

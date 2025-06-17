@@ -53,18 +53,27 @@ class WebSearchNode:
 
     async def summarize_source(self, topic: str, source_dict: dict[str, Any]) -> (str, str, dict[str, Any]):
         max_length = 102400  # 100K
-        raw_content = source_dict['raw_content'][:max_length] if source_dict['raw_content'] is not None else source_dict['content']
-        instructions = SUMMARIZER_INSTRUCTIONS.format(topic=topic, context=raw_content)
 
-        with get_usage_metadata_callback() as cb:
-            summary = await self.base_llm.ainvoke(instructions)
+        if source_dict['raw_content'] is not None:
+            raw_content = source_dict['raw_content'][:max_length]
+            instructions = SUMMARIZER_INSTRUCTIONS.format(topic=topic, context=raw_content)
+
+            with get_usage_metadata_callback() as cb:
+                summary = await self.base_llm.ainvoke(instructions)
+                token_usage = {
+                    'input_tokens': cb.usage_metadata[self.model_name]['input_tokens'],
+                    'output_tokens': cb.usage_metadata[self.model_name]['output_tokens'],
+                }
+                content = summary.content
+        else:
+            content = source_dict['content']
             token_usage = {
-                'input_tokens': cb.usage_metadata[self.model_name]['input_tokens'],
-                'output_tokens': cb.usage_metadata[self.model_name]['output_tokens'],
+                'input_tokens': 0,
+                'output_tokens': 0,
             }
 
         return {
-            'content': summary.content,
+            'content': content,
             'token_usage': token_usage
         }
 

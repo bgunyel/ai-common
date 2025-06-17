@@ -44,7 +44,12 @@ class WebSearchNode:
         self.web_search = WebSearch(api_key=web_search_api_key)
         self.configuration_module_prefix: Final = configuration_module_prefix
         self.model_name = model_params['model']
-        self.base_llm = init_chat_model(kwargs=model_params)
+        self.base_llm = init_chat_model(
+            model=model_params['model'],
+            model_provider=model_params['model_provider'],
+            api_key=model_params['api_key'],
+            kwargs=model_params['model_args']
+        )
 
     async def summarize_source(self, topic: str, source_dict: dict[str, Any]) -> (str, str, dict[str, Any]):
         max_length = 102400  # 100K

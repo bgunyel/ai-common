@@ -38,7 +38,12 @@ class QueryWriter:
     def __init__(self, model_params: dict[str, Any], configuration_module_prefix: str):
         self.model_name = model_params['model']
         self.configuration_module_prefix: Final = configuration_module_prefix
-        base_llm = init_chat_model(kwargs=model_params)
+        base_llm = init_chat_model(
+            model=model_params['model'],
+            model_provider=model_params['model_provider'],
+            api_key=model_params['api_key'],
+            kwargs=model_params['model_args']
+        )
         self.structured_llm = base_llm.with_structured_output(Queries)
 
     def run(self, state: BaseModel, config: RunnableConfig) -> BaseModel:

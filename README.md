@@ -6,6 +6,7 @@ A Python utility library providing common classes and functions for AI applicati
 
 - **Multi-LLM Support**: Unified interface for Anthropic, OpenAI, Groq, and Ollama models
 - **Web Search Integration**: Async Tavily search with source deduplication and formatting
+- **Graph Components**: Pre-built QueryWriter and WebSearchNode for AI workflows
 - **Base Abstractions**: Configuration and graph base classes for AI workflows
 - **Utility Functions**: Flow chart generation, thinking token processing, and more
 - **Engine Framework**: Core engine abstraction for building AI applications
@@ -133,6 +134,74 @@ class MyGraph(GraphBase):
     def __init__(self):
         super().__init__()
         # Define your graph structure
+```
+
+### Graph Components
+
+The library provides pre-built components for building AI graph workflows:
+
+#### QueryWriter
+Generates targeted web search queries using LLM with structured output:
+
+```python
+from ai_common.components import QueryWriter
+
+# Initialize with model parameters
+model_params = {
+    'model': 'gpt-4',
+    'model_provider': 'openai',
+    'api_key': 'your-api-key',
+    'model_args': {}
+}
+
+query_writer = QueryWriter(
+    model_params=model_params,
+    configuration_module_prefix='your_config'
+)
+
+# Use in your graph workflow
+# Expects state with 'topic' attribute
+# Returns state with 'search_queries' attribute
+updated_state = query_writer.run(state, config)
+```
+
+#### WebSearchNode
+Performs web searches and summarizes content using LLM:
+
+```python
+from ai_common.components import WebSearchNode
+
+web_search_node = WebSearchNode(
+    web_search_api_key='your-tavily-api-key',
+    model_params=model_params,
+    configuration_module_prefix='your_config'
+)
+
+# Use in your graph workflow
+# Expects state with 'search_queries' and 'topic' attributes
+# Returns state with 'source_str' and 'unique_sources' attributes
+updated_state = await web_search_node.run_async(state, config)
+# Or use synchronous version:
+# updated_state = web_search_node.run(state, config)
+```
+
+#### Combined Workflow Example
+```python
+from ai_common import GraphBase, NodeBase
+from ai_common.components import QueryWriter, WebSearchNode
+
+class ResearchGraph(GraphBase):
+    def __init__(self, model_params, web_search_api_key, config_prefix):
+        super().__init__()
+        self.query_writer = QueryWriter(model_params, config_prefix)
+        self.web_search_node = WebSearchNode(web_search_api_key, model_params, config_prefix)
+    
+    def build_graph(self):
+        # Define your graph flow
+        # 1. Generate queries with QueryWriter
+        # 2. Search and summarize with WebSearchNode
+        # 3. Continue with additional processing nodes
+        pass
 ```
 
 ### Utility Functions

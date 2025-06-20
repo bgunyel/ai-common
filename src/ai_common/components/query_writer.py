@@ -79,7 +79,7 @@ class QueryWriter:
             configuration_module_prefix = self.configuration_module_prefix,
             config = config
         )
-        state.steps.append(NodeBase.QUERY_WRITER.value)
+        state.steps.append(NodeBase.QUERY_WRITER)
         instructions = QUERY_WRITER_INSTRUCTIONS.format(topic=state.topic,
                                                         today=datetime.date.today().isoformat(),
                                                         number_of_queries=configurable.number_of_queries)

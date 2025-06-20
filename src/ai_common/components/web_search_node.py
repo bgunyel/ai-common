@@ -150,7 +150,7 @@ class WebSearchNode:
         source_str = format_sources(unique_sources=unique_sources,
                                     max_tokens_per_source=configurable.max_tokens_per_source,
                                     include_raw_content=False)
-        state.steps.append(NodeBase.WEB_SEARCH.value)
+        state.steps.append(NodeBase.WEB_SEARCH)
         state.source_str = source_str
         state.unique_sources = unique_sources
         return state

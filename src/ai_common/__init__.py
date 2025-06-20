@@ -1,5 +1,5 @@
 from .base import CfgBase, ConfigurationBase, TavilySearchCategory, GraphBase, SearchQuery, Queries
-from .enums import LlmServers, NodeBase
+from .enums import LlmServers, NodeBase, build_node_enum
 from .engine import Engine
 from .llm import load_ollama_model
 from .price import PRICE_USD_PER_MILLION_TOKENS
@@ -19,6 +19,7 @@ __all__ = [
     'CfgBase',
     'ConfigurationBase',
     'NodeBase',
+    'build_node_enum',
     'TavilySearchCategory',
     'GraphBase',
     'SearchQuery',

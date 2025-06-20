@@ -77,8 +77,9 @@ class WebSearchNode:
         }
 
     def run(self, state: BaseModel, config: RunnableConfig) -> BaseModel:
-        event_loop = asyncio.get_event_loop()
+        event_loop = asyncio.new_event_loop()
         state = event_loop.run_until_complete(self.run_async(state=state, config=config))
+        event_loop.close()
         return state
 
 

@@ -1,5 +1,3 @@
-import asyncio
-
 from tavily import AsyncTavilyClient
 
 from .base import TavilySearchCategory

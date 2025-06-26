@@ -12,7 +12,8 @@ PRICE_USD_PER_MILLION_TOKENS = {
         'meta-llama/llama-4-scout-17b-16e-instruct': {'input_tokens': 0.11, 'output_tokens': 0.34},
         'meta-llama/llama-guard-4-12b': {'input_tokens': 0.20, 'output_tokens': 0.20},
         'mistral-saba-24b': {'input_tokens': 0.79, 'output_tokens': 0.79},
-        'qwen-qwq-32b': {'input_tokens': 0.29, 'output_tokens': 0.39}
+        'qwen-qwq-32b': {'input_tokens': 0.29, 'output_tokens': 0.39},
+        'qwen/qwen3-32b': {'input_tokens': 0.29, 'output_tokens': 0.59},
     },
     LlmServers.OPENAI.value: {
         'gpt-4.1': {'input_tokens': 2.00, 'output_tokens': 8.00},

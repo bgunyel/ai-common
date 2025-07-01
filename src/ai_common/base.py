@@ -59,69 +59,47 @@ class GraphBase(ABC):
 
 class SearchQuery(BaseModel):
     """
-    A data model representing a single web search query.
+    A comprehensive data model representing a structured web search query.
     
-    This class encapsulates a search query string that can be used with web search
-    APIs or services. It serves as a structured way to represent and validate
-    search queries within the AI common framework.
+    This class encapsulates all components of a search query including the actual
+    query string, the specific aspect being searched, and the rationale behind
+    the query generation. It serves as a structured way to represent, validate,
+    and document search queries within the AI common framework.
+    
+    The SearchQuery model is designed to provide context and traceability for
+    search operations, making it easier to understand why specific queries were
+    generated and what information they aim to retrieve.
     
     Attributes:
-        search_query (str): The actual search query string to be executed.
-                           Can be None if not yet defined.
+        search_query (str): The actual search query string to be executed
+                           against web search APIs or services.
+        aspect (str, optional): Describes which specific aspect or facet of the topic
+                              the query aims to cover (e.g., "recent developments",
+                              "technical specifications", "market trends"). Defaults to None.
+        rationale (str, optional): The reasoning or justification for generating this
+                                 particular search query, explaining why it was chosen
+                                 and what information it's expected to retrieve. Defaults to None.
     
     Example:
-        >>> query = SearchQuery(search_query="artificial intelligence trends 2024")
+        >>> query = SearchQuery(
+        ...     search_query="artificial intelligence trends 2024",
+        ...     aspect="recent developments",
+        ...     rationale="Need current AI trends for market analysis report"
+        ... )
         >>> print(query.search_query)
         "artificial intelligence trends 2024"
+        >>> print(query.aspect)
+        "recent developments"
         
-        >>> empty_query = SearchQuery()
-        >>> print(empty_query.search_query)
-        None
-    """
-    search_query: str = Field(None, description="Query for web search.")
-
-
-class Queries(BaseModel):
-    """
-    A collection model for managing multiple web search queries.
-    
-    This class provides a structured container for handling multiple SearchQuery
-    instances. It's designed to facilitate batch processing of search queries
-    and maintain consistency across search operations in AI workflows.
-    
-    The class validates that all contained queries are properly structured
-    SearchQuery instances and provides a clean interface for accessing and
-    manipulating the query collection.
-    
-    Attributes:
-        queries (List[SearchQuery]): A list of SearchQuery instances representing
-                                   individual search queries to be processed.
-                                   Each query in the list must be a valid
-                                   SearchQuery object.
-    
-    Example:
-        >>> query1 = SearchQuery(search_query="machine learning algorithms")
-        >>> query2 = SearchQuery(search_query="deep learning frameworks")
-        >>> queries_collection = Queries(queries=[query1, query2])
-        >>> print(len(queries_collection.queries))
-        2
-        >>> print(queries_collection.queries[0].search_query)
-        "machine learning algorithms"
-        
-        >>> # Empty collection
-        >>> empty_queries = Queries(queries=[])
-        >>> print(len(empty_queries.queries))
-        0
-        
-        >>> # Adding queries programmatically
-        >>> new_queries = Queries(queries=[])
-        >>> new_queries.queries.append(SearchQuery(search_query="AI ethics"))
-        >>> print(len(new_queries.queries))
-        1
+        >>> basic_query = SearchQuery(search_query="python tutorials")
+        >>> print(basic_query.search_query)
+        "python tutorials"
     
     Note:
-        This class is typically used in conjunction with web search nodes
-        and other components that need to process multiple search queries
-        in a structured manner.
+        The search_query field is required, while aspect and rationale are optional
+        and can be None, allowing for flexible instantiation depending on the use
+        case and available information at query creation time.
     """
-    queries: List[SearchQuery] = Field(description="List of search queries.")
+    search_query: str = Field(description="Query for web search.")
+    aspect: str = Field(None, description="Which aspect of the topic the query aims to cover.")
+    rationale: str = Field(None, description="Reasoning for generating the search query.")

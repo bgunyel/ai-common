@@ -60,6 +60,91 @@ async def tavily_search_async(client: AsyncTavilyClient,
 
 
 def deduplicate_sources(search_response: list[dict]):
+    """
+    Remove duplicate sources from web search results based on URL uniqueness.
+    
+    This function processes a list of search responses from the Tavily API and eliminates
+    duplicate sources by using URLs as unique identifiers. It handles both single search
+    responses (containing a 'results' key) and lists of search results, extracting and
+    consolidating all sources into a single deduplicated collection.
+    
+    The deduplication process is essential when performing multiple concurrent searches
+    that may return overlapping results. By removing duplicates, the function ensures
+    that downstream processing (such as content analysis or summarization) operates
+    on a clean, unique set of sources without redundancy.
+    
+    The function is designed to be robust and handle different response formats from
+    the Tavily API, automatically detecting whether each response contains a 'results'
+    key (typical API response format) or is a direct list of search results.
+    
+    Args:
+        search_response (list[dict]): A list of search responses from the Tavily API.
+                                    Each response can be either:
+                                    - A dictionary with a 'results' key containing a list of sources
+                                    - A list of source dictionaries directly
+                                    Each source dictionary should contain at least a 'url' key
+                                    for deduplication purposes.
+    
+    Returns:
+        dict: A dictionary mapping unique URLs to their corresponding source dictionaries.
+              The keys are URLs (str) and values are the complete source dictionaries
+              from the original search responses. This format allows for efficient
+              lookup and preserves all source metadata while ensuring uniqueness.
+              
+              Structure: {
+                  'https://example.com/article1': {
+                      'url': 'https://example.com/article1',
+                      'title': 'Article Title',
+                      'content': 'Article content...',
+                      'raw_content': 'Full article text...',
+                      ...
+                  },
+                  ...
+              }
+    
+    Example:
+        >>> # Multiple search responses with overlapping results
+        >>> responses = [
+        ...     {
+        ...         'results': [
+        ...             {'url': 'https://example.com/ai-trends', 'title': 'AI Trends 2024'},
+        ...             {'url': 'https://example.com/ml-health', 'title': 'ML in Healthcare'}
+        ...         ]
+        ...     },
+        ...     {
+        ...         'results': [
+        ...             {'url': 'https://example.com/ai-trends', 'title': 'AI Trends 2024'},  # Duplicate
+        ...             {'url': 'https://example.com/ai-ethics', 'title': 'AI Ethics Framework'}
+        ...         ]
+        ...     }
+        ... ]
+        >>> 
+        >>> # Deduplicate the sources
+        >>> unique_sources_ = deduplicate_sources(responses)
+        >>> print(len(unique_sources_))  # 3 unique sources
+        >>> print(list(unique_sources_.keys()))
+        ['https://example.com/ai-trends', 'https://example.com/ml-health', 'https://example.com/ai-ethics']
+    
+    Processing Logic:
+        1. Iterate through each search response in the input list
+        2. Check if the response is a dictionary with a 'results' key
+        3. If yes, extract the results list; otherwise, treat the response as a direct list
+        4. Extend the sources list with all extracted results
+        5. Create a dictionary using URLs as keys to automatically eliminate duplicates
+        6. Return the deduplicated dictionary of unique sources
+    
+    Note:
+        - The function preserves the first occurrence of each URL encountered
+        - Source dictionaries must contain a 'url' key for proper deduplication
+        - The function is tolerant of different response formats from the Tavily API
+        - Memory usage is proportional to the number of unique sources found
+        - The returned dictionary format facilitates efficient source lookup operations
+    
+    See Also:
+        - tavily_search_async: Function that generates the search responses processed by this function
+        - format_sources: Function that formats the deduplicated sources for display
+        - deduplicate_and_format_sources: Convenience function that combines deduplication and formatting
+    """
     sources_list = []
     for response in search_response:
         if isinstance(response, dict) and 'results' in response:

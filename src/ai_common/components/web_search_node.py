@@ -142,7 +142,8 @@ class WebSearchNode:
         unique_sources = {
             url: {
                 'title': value['title'],
-                'content': summary['content']
+                'content': summary['content'],
+                'score': value['score'],
             }
             for url, value, summary in zip(unique_sources.keys(), unique_sources.values(), out)
         }

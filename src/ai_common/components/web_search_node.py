@@ -131,6 +131,11 @@ class WebSearchNode:
             search_category = configurable.search_category,
             number_of_days_back = configurable.number_of_days_back,
             max_results_per_query = configurable.max_results_per_query,
+            search_depth = configurable.search_depth,
+            chunks_per_source=configurable.chunks_per_source,
+            include_images=configurable.include_images,
+            include_image_descriptions=configurable.include_image_descriptions,
+            include_favicon=configurable.include_favicon,
         )
 
         tasks = [self.summarize_source(topic=state.topic, source_dict=v) for v in unique_sources.values()]

@@ -6,7 +6,7 @@ from PIL import Image
 from tavily import AsyncTavilyClient
 from langchain_core.runnables import RunnableConfig
 
-from .base import TavilySearchCategory, CfgBase
+from .base import CfgBase, TavilySearchCategory, TavilySearchDepth
 
 
 def get_config_from_runnable(configuration_module_prefix: str, config: RunnableConfig) -> CfgBase:
@@ -25,30 +25,139 @@ def get_flow_chart(rag_model):
 async def tavily_search_async(client: AsyncTavilyClient,
                               search_queries: list[str],
                               search_category: TavilySearchCategory,
+                              search_depth: TavilySearchDepth,
+                              chunks_per_source: int,
                               number_of_days_back: int,
-                              max_results: int = 5):
+                              max_results: int,
+                              include_images: bool,
+                              include_image_descriptions: bool,
+                              include_favicon: bool):
     """
-    Performs concurrent web searches using the Tavily API.
-
+    Perform concurrent web searches using the Tavily API with comprehensive configuration options.
+    
+    This asynchronous function executes multiple search queries concurrently using the Tavily search API,
+    providing extensive control over search behavior, content retrieval, and result formatting. It is
+    designed to efficiently handle bulk search operations while maintaining flexibility in search
+    configuration and result customization.
+    
+    The function leverages asyncio.gather to execute all searches concurrently, significantly improving
+    performance when processing multiple queries. It supports both news and general search categories,
+    with time-based filtering for news searches and comprehensive content retrieval options.
+    
+    Search Configuration:
+    - Supports both 'news' and 'general' search categories
+    - Configurable search depth for basic or advanced search algorithms
+    - Time-based filtering for news searches (days back from current date)
+    - Customizable result limits per query
+    - Raw content inclusion for comprehensive text analysis
+    - Image and favicon retrieval options
+    
+    Content Retrieval Options:
+    - Raw content extraction for full-text analysis
+    - Chunked content processing for better organization
+    - Image inclusion with optional descriptions
+    - Favicon retrieval for source branding
+    - Flexible content structuring based on chunks per source
+    
     Args:
-        client: Async Tavily Client
-        search_queries (Queries): List of search queries to process
-        search_category (str): Type of search to perform ('news' or 'general')
-        number_of_days_back (int): Number of days to look back for news articles (only used when tavily_topic='news')
-        max_results (int): The maximum number of search results to return. Default is 5.
-
+        client (AsyncTavilyClient): An authenticated Tavily API client instance for making search requests.
+        search_queries (list[str]): List of search query strings to execute concurrently.
+                                   Each query will be processed as an independent search operation.
+        search_category (TavilySearchCategory): The type of search to perform, either 'news' or 'general'.
+                                              Determines the search algorithm and result filtering applied.
+        search_depth (TavilySearchDepth): The depth of search to perform, either 'basic' or 'advanced'.
+                                        Advanced search provides more comprehensive results but takes longer.
+        chunks_per_source (int): Number of content chunks to extract per source.
+                               Controls the granularity of content segmentation for better processing.
+        number_of_days_back (int): Number of days to look back for news articles.
+                                 Only applicable when search_category is 'news'.
+                                 Filters results to include only recent articles within the specified timeframe.
+        max_results (int): The maximum number of search results to return per query.
+                          Controls the volume of results and API usage.
+        include_images (bool): Whether to include images in the search results.
+                             Adds visual content to results for multimedia analysis.
+        include_image_descriptions (bool): Whether to include AI-generated descriptions for images.
+                                         Provides textual context for visual content.
+        include_favicon (bool): Whether to include website favicons in the results.
+                              Adds branding information for source identification.
+    
     Returns:
-        List[dict]: List of search results from Tavily API, one per query
-
+        List[dict]: A list of search result dictionaries, one per input query, preserving the order
+                   of input queries. Each dictionary contains the complete search response from the
+                   Tavily API including:
+                   - results: List of individual search result items
+                   - query: The original search query
+                   - response_time: Time taken to process the search
+                   - Additional metadata based on configuration options
+    
+    Example:
+        >>> import asyncio
+        >>> from tavily import AsyncTavilyClient
+        >>> from ai_common.utils import tavily_search_async
+        >>> 
+        >>> # Initialize client
+        >>> client_ = AsyncTavilyClient(api_key="your_api_key")
+        >>> 
+        >>> # Define search queries
+        >>> queries = [
+        ...     "artificial intelligence trends 2024",
+        ...     "machine learning healthcare applications",
+        ...     "quantum computing recent developments"
+        ... ]
+        >>> 
+        >>> # Execute concurrent searches
+        >>> results = 'await' tavily_search_async(
+        ...     client=client_,
+        ...     search_queries=queries,
+        ...     search_category="general",
+        ...     search_depth="advanced",
+        ...     chunks_per_source=3,
+        ...     number_of_days_back=30,
+        ...     max_results=5,
+        ...     include_images=True,
+        ...     include_image_descriptions=True,
+        ...     include_favicon=True
+        ... )
+        >>> 
+        >>> # Process results
+        >>> for i, result in enumerate(results):
+        ...     print(f"Query {i+1}: {queries[i]}")
+        ...     print(f"Found {len(result['results'])} results")
+    
+    Performance Characteristics:
+        - Concurrent execution using asyncio.gather for optimal performance
+        - Network I/O bound operations benefit from async processing
+        - Memory usage scales with number of queries and max_results per query
+        - Processing time depends on search_depth and API response times
+    
+    Error Handling:
+        The function relies on the underlying AsyncTavilyClient for error handling.
+        Network errors, authentication failures, and API rate limits are propagated
+        from the client. It's recommended to implement retry logic and error handling
+        at the calling level.
+    
     Note:
-        For news searches, each result will include articles from the last `number_of_days_back` days.
-        For general searches, the time range is unrestricted.
+        - For news searches, the number_of_days_back parameter filters results to recent articles
+        - For general searches, the time range is unrestricted regardless of number_of_days_back
+        - All searches include raw content by default for comprehensive text analysis
+        - The function preserves the order of input queries in the returned results
+        - API usage and costs scale with the number of queries and max_results per query
+    
+    See Also:
+        - AsyncTavilyClient: The underlying client used for API communication
+        - deduplicate_sources: Function for removing duplicate results across searches
+        - format_sources: Function for formatting search results for display
     """
 
     kwargs = {
         'max_results': max_results,
         'include_raw_content': True,
         'topic': search_category,
+        'search_depth': search_depth,
+        'chunks_per_source': chunks_per_source,
+        'include_images': include_images,
+        'include_image_descriptions': include_image_descriptions,
+        'include_favicon': include_favicon,
     }
     if search_category == 'news':
         kwargs['days'] = number_of_days_back

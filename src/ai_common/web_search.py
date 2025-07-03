@@ -1,6 +1,6 @@
 from tavily import AsyncTavilyClient
 
-from .base import TavilySearchCategory
+from .base import TavilySearchCategory, TavilySearchDepth
 from .utils import tavily_search_async, deduplicate_sources
 
 
@@ -84,17 +84,27 @@ class WebSearch:
         self.client = AsyncTavilyClient(api_key=api_key)
 
     async def search(self,
-               search_queries: list[str],
-               search_category: TavilySearchCategory,
-               number_of_days_back: int,
-               max_results_per_query: int) -> dict:
+                     search_queries: list[str],
+                     search_category: TavilySearchCategory,
+                     search_depth: TavilySearchDepth,
+                     chunks_per_source: int,
+                     number_of_days_back: int,
+                     max_results_per_query: int,
+                     include_images: bool,
+                     include_image_descriptions: bool,
+                     include_favicon: bool) -> dict:
 
         search_docs = await tavily_search_async(
             client=self.client,
             search_queries=search_queries,
             search_category=search_category,
+            search_depth=search_depth,
+            chunks_per_source=chunks_per_source,
             number_of_days_back=number_of_days_back,
             max_results=max_results_per_query,
+            include_images=include_images,
+            include_image_descriptions=include_image_descriptions,
+            include_favicon=include_favicon,
         )
 
         unique_sources = deduplicate_sources(search_response=search_docs)

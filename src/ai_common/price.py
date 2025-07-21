@@ -1,3 +1,5 @@
+from typing import Any
+
 from .enums import LlmServers
 
 PRICE_USD_PER_MILLION_TOKENS = {
@@ -33,3 +35,24 @@ PRICE_USD_PER_MILLION_TOKENS = {
         'claude-3-7-sonnet-latest': {'input_tokens': 3.00, 'output_tokens': 15.00},
     }
 }
+
+
+def calculate_token_cost_for_one_model(params: dict[str, Any], token_usage: dict[str, Any]) -> dict[str, Any]:
+    model_provider = params['model_provider']
+    model = params['model']
+    price_dict = PRICE_USD_PER_MILLION_TOKENS[model_provider][model]
+    cost = sum([price_dict[k] * token_usage[model][k] for k in price_dict.keys()]) / 1e6
+    return {
+        'model_provider': model_provider,
+        'model': model,
+        'cost': cost,
+    }
+
+def calculate_token_cost(llm_config: dict[str, Any], token_usage: dict[str, Any]) -> (list[dict[str, Any]], float):
+    total_cost = 0
+    cost_list = []
+    for model_type, params in llm_config.items():
+        cost_dict = calculate_token_cost_for_one_model(params = params, token_usage = token_usage)
+        total_cost += cost_dict['cost']
+        cost_list.append(cost_dict)
+    return cost_list, total_cost

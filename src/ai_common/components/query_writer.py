@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 from typing import Any, Final
@@ -74,68 +75,7 @@ class QueryWriter:
         )
 
     def run(self, state: BaseModel, config: RunnableConfig) -> BaseModel:
-        """
-        Generate targeted web search queries using LLM with structured JSON output.
-        
-        This method orchestrates the generation of a specified number of diverse, 
-        targeted search queries designed to gather comprehensive information about 
-        a given research topic. It leverages a language model with structured JSON 
-        output to ensure consistent query formatting and comprehensive topic coverage.
-        
-        The method performs the following operations:
-        1. Validates that the input state contains a required 'topic' attribute
-        2. Extracts configuration parameters from the runnable config
-        3. Formats detailed instructions including the topic, current date, and query count
-        4. Invokes the LLM with JSON response format to generate structured queries
-        5. Tracks token usage for cost monitoring and performance analysis
-        6. Parses the JSON response and converts it to SearchQuery objects
-        7. Updates the state with generated queries and execution metadata
-        
-        The generated queries are designed to:
-        - Cover different aspects and facets of the research topic
-        - Account for the most current information available as of today's date
-        - Be specific enough to avoid generic or irrelevant search results
-        - Be diverse enough to gather comprehensive information for summary writing
-        
-        Args:
-            state (BaseModel): The current workflow state containing the research topic.
-                             Must have a 'topic' attribute (str) that defines the subject
-                             for which search queries will be generated.
-            config (RunnableConfig): The runnable configuration containing execution
-                                   parameters. Expected to contain configurable settings
-                                   including 'number_of_queries' that specifies how many
-                                   search queries to generate.
-        
-        Returns:
-            BaseModel: The updated state object with the following modifications:
-                      - search_queries: List of SearchQuery objects, each containing
-                        search_query, aspect, and rationale fields
-                      - steps: Updated list with NodeBase.QUERY_WRITER appended to track
-                        the execution flow
-                      - token_usage: Updated dictionary tracking input and output tokens
-                        consumed by the LLM, organized by model name
-        
-        Raises:
-            AttributeError: If the input state does not have a required 'topic' attribute
-            json.JSONDecodeError: If the LLM response cannot be parsed as valid JSON
-            KeyError: If the parsed JSON does not contain the expected 'queries' field
-            
-        Example:
-            >>> state = ResearchState(topic="artificial intelligence in healthcare")
-            >>> config = RunnableConfig(configurable={"number_of_queries": 3})
-            >>> updated_state = query_writer.run(state, config)
-            >>> len(updated_state.search_queries)
-            3
-            >>> updated_state.search_queries[0].search_query
-            "AI applications in medical diagnosis 2024"
-        
-        Note:
-            - Uses structured JSON output format to ensure consistent query generation
-            - Incorporates today's date in instructions to bias toward current information
-            - Tracks detailed token usage for cost monitoring and performance optimization
-            - All generated queries follow the SearchQuery schema with search_query,
-              aspect, and rationale fields
-        """
+
         if not hasattr(state, 'topic'):
             raise AttributeError("State must have a 'topic' attribute")
         
@@ -144,6 +84,7 @@ class QueryWriter:
             config = config
         )
         state.steps.append(NodeBase.QUERY_WRITER)
+        """
         instructions = QUERY_WRITER_INSTRUCTIONS.format(topic=state.topic,
                                                         today=datetime.date.today().isoformat(),
                                                         number_of_queries=configurable.number_of_queries)
@@ -152,5 +93,26 @@ class QueryWriter:
             state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name]['input_tokens']
             state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
             json_dict = json.loads(results.content)
+        """
         state.search_queries = [SearchQuery(**q) for q in json_dict['queries']]
         return state
+
+
+    async def generate_queries(self, topic: str, number_of_queries: int):
+        instructions = QUERY_WRITER_INSTRUCTIONS.format(topic=topic,
+                                                        today=datetime.date.today().isoformat(),
+                                                        number_of_queries=number_of_queries)
+        with get_usage_metadata_callback() as cb:
+            results = await self.base_llm.ainvoke(instructions, response_format={"type": "json_object"})
+            token_usage = {
+                'input_tokens': cb.usage_metadata[self.model_name]['input_tokens'],
+                'output_tokens': cb.usage_metadata[self.model_name]['output_tokens'],
+            }
+
+            json_dict = json.loads(results.content)
+            search_queries = [SearchQuery(**q) for q in json_dict['queries']]
+
+        return {
+            'search_queries': search_queries,
+            'token_usage': token_usage,
+        }

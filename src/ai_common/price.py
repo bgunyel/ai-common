@@ -14,6 +14,7 @@ PRICE_USD_PER_MILLION_TOKENS = {
         'meta-llama/llama-4-scout-17b-16e-instruct': {'input_tokens': 0.11, 'output_tokens': 0.34},
         'meta-llama/llama-guard-4-12b': {'input_tokens': 0.20, 'output_tokens': 0.20},
         'mistral-saba-24b': {'input_tokens': 0.79, 'output_tokens': 0.79},
+        'moonshotai/kimi-k2-instruct': {'input_tokens': 1.00, 'output_tokens': 3.00},
         'qwen-qwq-32b': {'input_tokens': 0.29, 'output_tokens': 0.39},
         'qwen/qwen3-32b': {'input_tokens': 0.29, 'output_tokens': 0.59},
     },

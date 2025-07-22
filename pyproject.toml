@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Bertan Günyel", email = "bertan.gunyel@gmail.com" }
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "langchain>=0.3.25",
     "langchain-anthropic>=0.3.13",

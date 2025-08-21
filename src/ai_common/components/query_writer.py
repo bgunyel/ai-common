@@ -94,6 +94,9 @@ class QueryWriter:
             state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
             json_dict = json.loads(results.content)
         """
+
+        ## TODO
+        raise NotImplementedError('This shall be parallelized (in accordance with question-tracing in SummaryWriter)')
         state.search_queries = [SearchQuery(**q) for q in json_dict['queries']]
         return state
 

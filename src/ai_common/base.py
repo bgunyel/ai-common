@@ -1,7 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
-from typing import Any, Optional, TypeAlias, Literal, List
+from typing import Any, Optional, TypeAlias, Literal
 
 from pydantic import BaseModel, Field
 from langchain_core.runnables import RunnableConfig
@@ -80,26 +80,7 @@ class SearchQuery(BaseModel):
         rationale (str, optional): The reasoning or justification for generating this
                                  particular search query, explaining why it was chosen
                                  and what information it's expected to retrieve. Defaults to None.
-    
-    Example:
-        >>> query = SearchQuery(
-        ...     search_query="artificial intelligence trends 2024",
-        ...     aspect="recent developments",
-        ...     rationale="Need current AI trends for market analysis report"
-        ... )
-        >>> print(query.search_query)
-        "artificial intelligence trends 2024"
-        >>> print(query.aspect)
-        "recent developments"
-        
-        >>> basic_query = SearchQuery(search_query="python tutorials")
-        >>> print(basic_query.search_query)
-        "python tutorials"
-    
-    Note:
-        The search_query field is required, while aspect and rationale are optional
-        and can be None, allowing for flexible instantiation depending on the use
-        case and available information at query creation time.
+
     """
     search_query: str = Field(description="Query for web search.")
     aspect: str = Field(None, description="Which aspect of the topic the query aims to cover.")

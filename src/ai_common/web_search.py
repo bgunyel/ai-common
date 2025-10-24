@@ -1,6 +1,6 @@
 from tavily import AsyncTavilyClient
 
-from .base import TavilySearchCategory, TavilySearchDepth
+from .enums import TavilySearchCategory, TavilySearchDepth
 from .utils import tavily_search_async, deduplicate_sources
 
 
@@ -80,7 +80,7 @@ class WebSearch:
         The AsyncTavilyClient is designed to be thread-safe, but it's recommended to use
         this class within a single asyncio event loop context for optimal performance.
     """
-    def __init__(self, api_key: str) -> None:
+    def __init__(self, api_key: str):
         self.client = AsyncTavilyClient(api_key=api_key)
 
     async def search(self,

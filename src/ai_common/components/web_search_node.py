@@ -50,7 +50,7 @@ class WebSearchNode:
            **model_params['model_args']
         )
 
-    async def summarize_source(self, topic: str, source_dict: dict[str, Any]) -> (str, str, dict[str, Any]):
+    async def summarize_source(self, topic: str, source_dict: dict[str, Any]) -> dict[str, Any]:
         max_length = 102400  # 100K
 
         if source_dict['raw_content'] is not None:

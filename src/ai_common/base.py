@@ -6,9 +6,6 @@ from typing import Any, Optional, TypeAlias, Literal
 from pydantic import BaseModel, Field
 from langchain_core.runnables import RunnableConfig
 
-TavilySearchCategory: TypeAlias = Literal['news', 'general']
-TavilySearchDepth: TypeAlias = Literal['basic', 'advanced']
-
 
 class CfgBase(BaseModel):
     thread_id: str

@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 from io import BytesIO
 import importlib
 
@@ -6,7 +7,8 @@ from PIL import Image
 from tavily import AsyncTavilyClient
 from langchain_core.runnables import RunnableConfig
 
-from .base import CfgBase, TavilySearchCategory, TavilySearchDepth
+from .base import CfgBase
+from .enums import TavilySearchCategory, TavilySearchDepth
 
 
 def get_config_from_runnable(configuration_module_prefix: str, config: RunnableConfig) -> CfgBase:
@@ -149,18 +151,20 @@ async def tavily_search_async(client: AsyncTavilyClient,
         - format_sources: Function for formatting search results for display
     """
 
+    start_date = datetime.date.today() - datetime.timedelta(days=number_of_days_back)
+    start_date_str = start_date.isoformat() if start_date > datetime.date.fromisoformat("1919-05-19") else "1919-05-19"
+
     kwargs = {
         'max_results': max_results,
         'include_raw_content': True,
-        'topic': search_category,
-        'search_depth': search_depth,
+        'topic': search_category.value,
+        'search_depth': search_depth.value,
         'chunks_per_source': chunks_per_source,
         'include_images': include_images,
         'include_image_descriptions': include_image_descriptions,
         'include_favicon': include_favicon,
+        'start_date': start_date_str,
     }
-    if search_category == 'news':
-        kwargs['days'] = number_of_days_back
 
     # Execute all searches concurrently
     search_tasks = [client.search(query=query, **kwargs) for query in search_queries]

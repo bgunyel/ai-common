@@ -11,6 +11,16 @@ class LlmServers(Enum): # Alphabetical Order
     OLLAMA = 'ollama'
     VLLM = 'vllm'
 
+class TavilySearchCategory(Enum):
+    # https://docs.tavily.com/documentation/api-reference/endpoint/search
+    GENERAL = 'general'
+    FINANCE = 'finance'
+    NEWS = 'news'
+
+class TavilySearchDepth(Enum):
+    # https://docs.tavily.com/documentation/api-reference/endpoint/search
+    ADVANCED = 'advanced'
+    BASIC = 'basic'
 
 class NodeBase(BaseModel):
     model_config = ConfigDict(frozen=True)

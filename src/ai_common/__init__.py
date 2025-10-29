@@ -1,5 +1,5 @@
 from .base import CfgBase, ConfigurationBase, GraphBase, SearchQuery
-from .enums import LlmServers, NodeBase, TavilySearchCategory, TavilySearchDepth
+from .enums import LlmServers, ModelNames, NodeBase, TavilySearchCategory, TavilySearchDepth
 from .engine import Engine
 from .llm import load_ollama_model, get_llm
 from .price import calculate_token_cost
@@ -24,11 +24,13 @@ __all__ = [
     'GraphBase',
     'SearchQuery',
     'LlmServers',
+    'ModelNames',
     'Engine',
     'WebSearch',
     'calculate_token_cost',
     'tavily_search_async',
     'load_ollama_model',
+    'get_llm',
     'get_flow_chart',
     'deduplicate_and_format_sources',
     'deduplicate_sources',

@@ -50,10 +50,13 @@ def get_llm(model_name: ModelNames,
                 model_params['model_kwargs'] = {
                     'top_p': model_params.pop('top_p')
                 }
+            if ('reasoning' in model_params.keys()) and ('reasoning_effort' not in model_params.keys()):
+                model_params['reasoning_effort'] = model_params.pop('reasoning')
 
             llm = ChatGroq(
                 model = model_name_str,
                 api_key = api_key,
+                service_tier = "auto",
                 **model_params,
             )
         case LlmServers.OPENAI:
@@ -63,6 +66,10 @@ def get_llm(model_name: ModelNames,
                 **model_params,
             )
         case LlmServers.OLLAMA:
+
+            if ('reasoning' not in model_params.keys()) and ('reasoning_effort' in model_params.keys()):
+                model_params['reasoning'] = model_params.pop('reasoning_effort')
+
             llm = ChatOllama(
                 model = model_name_str,
                 client_kwargs={

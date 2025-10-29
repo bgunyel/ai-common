@@ -7,9 +7,20 @@ class LlmServers(Enum): # Alphabetical Order
     ANTHROPIC = 'anthropic'
     GROQ = 'groq'
     OPENAI = 'openai'
-    # Self-serve
     OLLAMA = 'ollama'
     VLLM = 'vllm'
+
+class ModelNames(Enum): # Most used model names in alphabetical order
+    """
+    * Same model can be served under different names on different platforms
+    *
+    * e.g. gpt-oss-120b is named as:
+        * openai/gpt-oss-120b on Groq
+        * gpt-oss:120b-cloud on Ollama Cloud
+    """
+    GPT_OSS_120B = 'gpt-oss-120b'
+    GPT_OSS_20B = 'gpt-oss-20b'
+
 
 class TavilySearchCategory(Enum):
     # https://docs.tavily.com/documentation/api-reference/endpoint/search

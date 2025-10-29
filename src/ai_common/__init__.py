@@ -1,7 +1,7 @@
 from .base import CfgBase, ConfigurationBase, GraphBase, SearchQuery
 from .enums import LlmServers, NodeBase, TavilySearchCategory, TavilySearchDepth
 from .engine import Engine
-from .llm import load_ollama_model
+from .llm import load_ollama_model, get_llm
 from .price import calculate_token_cost
 from .utils import (
     get_config_from_runnable,

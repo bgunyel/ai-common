@@ -20,7 +20,7 @@ def load_ollama_model(model_name: str, ollama_url: str) -> None:
 def get_llm(model_name: ModelNames,
             model_provider: LlmServers,
             api_key: SecretStr,
-            model_params: dict[str, Any]) -> BaseChatModel:
+            model_args: dict[str, Any]) -> BaseChatModel:
 
     model_name_alias_dict = {
         ModelNames.GPT_OSS_120B.value: {
@@ -43,32 +43,32 @@ def get_llm(model_name: ModelNames,
                 api_key = api_key,
                 stop = None,
                 timeout = None,
-                **model_params,
+                **model_args,
             )
         case LlmServers.GROQ:
-            if 'top_p' in model_params.keys():
-                model_params['model_kwargs'] = {
-                    'top_p': model_params.pop('top_p')
+            if 'top_p' in model_args.keys():
+                model_args['model_kwargs'] = {
+                    'top_p': model_args.pop('top_p')
                 }
-            if ('reasoning' in model_params.keys()) and ('reasoning_effort' not in model_params.keys()):
-                model_params['reasoning_effort'] = model_params.pop('reasoning')
+            if ('reasoning' in model_args.keys()) and ('reasoning_effort' not in model_args.keys()):
+                model_args['reasoning_effort'] = model_args.pop('reasoning')
 
             llm = ChatGroq(
                 model = model_name_str,
                 api_key = api_key,
                 service_tier = "auto",
-                **model_params,
+                **model_args,
             )
         case LlmServers.OPENAI:
             llm = ChatOpenAI(
                 model = model_name_str,
                 api_key = api_key,
-                **model_params,
+                **model_args,
             )
         case LlmServers.OLLAMA:
 
-            if ('reasoning' not in model_params.keys()) and ('reasoning_effort' in model_params.keys()):
-                model_params['reasoning'] = model_params.pop('reasoning_effort')
+            if ('reasoning' not in model_args.keys()) and ('reasoning_effort' in model_args.keys()):
+                model_args['reasoning'] = model_args.pop('reasoning_effort')
 
             llm = ChatOllama(
                 model = model_name_str,
@@ -76,7 +76,7 @@ def get_llm(model_name: ModelNames,
                     'headers': {'Authorization': f'Bearer {api_key}'}
                 },
                 base_url = "https://ollama.com",
-                **model_params,
+                **model_args,
             )
         case LlmServers.VLLM:
             # client = OpenAI(base_url=f'{llm_base_url}/v1', api_key=model_params['vllm_api_key'])

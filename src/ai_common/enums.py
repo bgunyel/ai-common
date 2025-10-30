@@ -20,6 +20,7 @@ class ModelNames(Enum): # Most used model names in alphabetical order
     """
     GPT_OSS_120B = 'gpt-oss-120b'
     GPT_OSS_20B = 'gpt-oss-20b'
+    LLAMA_70B_VERSATILE = 'llama-3.3-70b-versatile'
 
 
 class TavilySearchCategory(Enum):

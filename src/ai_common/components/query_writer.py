@@ -3,12 +3,11 @@ import datetime
 import json
 from typing import Any, Final
 
-from langchain.chat_models import init_chat_model
 from langchain_core.runnables import RunnableConfig
 from langchain_core.callbacks import get_usage_metadata_callback
 from pydantic import BaseModel
 
-from ai_common import get_config_from_runnable, NodeBase, SearchQuery
+from ai_common import get_config_from_runnable, get_llm, NodeBase, SearchQuery
 
 QUERY_WRITER_INSTRUCTIONS = """
 <Goal>
@@ -67,12 +66,10 @@ class QueryWriter:
     def __init__(self, model_params: dict[str, Any], configuration_module_prefix: str):
         self.model_name = model_params['model']
         self.configuration_module_prefix: Final = configuration_module_prefix
-        self.base_llm = init_chat_model(
-            model=model_params['model'],
-            model_provider=model_params['model_provider'],
-            api_key=model_params['api_key'],
-            **model_params['model_args']
-        )
+        base_llm = get_llm(model_name=model_params['model'],
+                           model_provider=model_params['model_provider'],
+                           api_key=model_params['api_key'],
+                           model_args=model_params['model_args'])
 
     def run(self, state: BaseModel, config: RunnableConfig) -> BaseModel:
 

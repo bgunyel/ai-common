@@ -1,7 +1,6 @@
 import asyncio
 from typing import Any, Final
 from pydantic import BaseModel
-from langchain.chat_models import init_chat_model
 from langchain_core.callbacks import get_usage_metadata_callback
 from langchain_core.runnables import RunnableConfig
 
@@ -9,6 +8,7 @@ from ai_common import (
     WebSearch,
     format_sources,
     get_config_from_runnable,
+    get_llm,
     NodeBase,
 )
 
@@ -43,12 +43,11 @@ class WebSearchNode:
         self.web_search = WebSearch(api_key=web_search_api_key)
         self.configuration_module_prefix: Final = configuration_module_prefix
         self.model_name = model_params['model']
-        self.base_llm = init_chat_model(
-            model=model_params['model'],
-            model_provider=model_params['model_provider'],
-            api_key=model_params['api_key'],
-           **model_params['model_args']
-        )
+        self.base_llm = get_llm(model_name=model_params['model'],
+                                model_provider=model_params['model_provider'],
+                                api_key=model_params['api_key'],
+                                model_args=model_params['model_args'])
+
 
     async def summarize_source(self, topic: str, source_dict: dict[str, Any]) -> dict[str, Any]:
         max_length = 102400  # 100K

@@ -11,29 +11,35 @@ from .enums import LlmServers, ModelNames
 from .tools import _check_and_pull_ollama_model
 
 
+MODEL_NAME_ALIAS_DICT = {
+        ModelNames.GPT_OSS_120B: {
+            LlmServers.GROQ: 'openai/gpt-oss-120b',
+            LlmServers.OLLAMA: 'gpt-oss:120b'
+        },
+        ModelNames.GPT_OSS_20B.value: {
+            LlmServers.GROQ: 'openai/gpt-oss-20b',
+            LlmServers.OLLAMA: 'gpt-oss:20b'
+        }
+    }
+
+
 def load_ollama_model(model_name: str, ollama_url: str) -> None:
     _check_and_pull_ollama_model(model_name=model_name, ollama_url=ollama_url)
     ollama_client = Client(host=ollama_url)
     ollama_client.generate(model=model_name)  # Generate w/ prompt loads the model to memory
 
 
+def get_model_name_alias(model_name: ModelNames, model_provider: LlmServers) -> str:
+    alias = MODEL_NAME_ALIAS_DICT[model_name][model_provider] if model_name in MODEL_NAME_ALIAS_DICT.keys() else model_name.value
+    return alias
+
 def get_llm(model_name: ModelNames,
             model_provider: LlmServers,
             api_key: SecretStr,
             model_args: dict[str, Any]) -> BaseChatModel:
 
-    model_name_alias_dict = {
-        ModelNames.GPT_OSS_120B.value: {
-            LlmServers.GROQ.value: 'openai/gpt-oss-120b',
-            LlmServers.OLLAMA.value: 'gpt-oss:120b-cloud'
-        },
-        ModelNames.GPT_OSS_20B.value: {
-            LlmServers.GROQ.value: 'openai/gpt-oss-20b',
-            LlmServers.OLLAMA.value: 'gpt-oss:20b-cloud'
-        }
-    }
-
-    model_name_str = model_name_alias_dict[model_name.value][model_provider.value] if model_name.value in model_name_alias_dict.keys() else model_name.value
+    # model_name_str = MODEL_NAME_ALIAS_DICT[model_name.value][model_provider.value] if model_name.value in MODEL_NAME_ALIAS_DICT.keys() else model_name.value
+    model_name_str = get_model_name_alias(model_name=model_name, model_provider=model_provider)
 
     llm = None
     match model_provider:

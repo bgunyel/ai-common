@@ -85,4 +85,4 @@ class SearchQuery(BaseModel):
 
 
 class Queries(BaseModel):
-    queries: list[SearchQuery] = Field(description="List of search queries.")
+    queries: list[SearchQuery]

@@ -1,4 +1,4 @@
-from .base import CfgBase, ConfigurationBase, GraphBase, SearchQuery
+from .base import CfgBase, ConfigurationBase, GraphBase, SearchQuery, Queries
 from .enums import LlmServers, ModelNames, NodeBase, TavilySearchCategory, TavilySearchDepth
 from .engine import Engine
 from .llm import load_ollama_model, get_llm
@@ -23,6 +23,7 @@ __all__ = [
     'TavilySearchDepth',
     'GraphBase',
     'SearchQuery',
+    'Queries',
     'LlmServers',
     'ModelNames',
     'Engine',

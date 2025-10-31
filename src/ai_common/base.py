@@ -82,3 +82,7 @@ class SearchQuery(BaseModel):
     search_query: str = Field(description="Query for web search.")
     aspect: str = Field(None, description="Which aspect of the topic the query aims to cover.")
     rationale: str = Field(None, description="Reasoning for generating the search query.")
+
+
+class Queries(BaseModel):
+    queries: list[SearchQuery] = Field(description="List of search queries.")

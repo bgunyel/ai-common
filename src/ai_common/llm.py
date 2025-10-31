@@ -16,7 +16,7 @@ MODEL_NAME_ALIAS_DICT = {
             LlmServers.GROQ: 'openai/gpt-oss-120b',
             LlmServers.OLLAMA: 'gpt-oss:120b'
         },
-        ModelNames.GPT_OSS_20B.value: {
+        ModelNames.GPT_OSS_20B: {
             LlmServers.GROQ: 'openai/gpt-oss-20b',
             LlmServers.OLLAMA: 'gpt-oss:20b'
         }

@@ -9,6 +9,7 @@ from ai_common import (
     format_sources,
     get_config_from_runnable,
     get_llm,
+    get_model_name_alias,
     NodeBase,
 )
 
@@ -43,6 +44,8 @@ class WebSearchNode:
         self.web_search = WebSearch(api_key=web_search_api_key)
         self.configuration_module_prefix: Final = configuration_module_prefix
         self.model_name = model_params['model']
+        self.model_name_alias = get_model_name_alias(model_name=self.model_name,
+                                                     model_provider=model_params['model_provider'])
         self.base_llm = get_llm(model_name=model_params['model'],
                                 model_provider=model_params['model_provider'],
                                 api_key=model_params['api_key'],
@@ -50,7 +53,7 @@ class WebSearchNode:
 
 
     async def summarize_source(self, topic: str, source_dict: dict[str, Any]) -> dict[str, Any]:
-        max_length = 102400  # 100K
+        max_length = 102_400  # 100K
 
         if source_dict['raw_content'] is not None:
             raw_content = source_dict['raw_content'][:max_length]
@@ -59,8 +62,8 @@ class WebSearchNode:
             with get_usage_metadata_callback() as cb:
                 summary = await self.base_llm.ainvoke(instructions)
                 token_usage = {
-                    'input_tokens': cb.usage_metadata[self.model_name]['input_tokens'],
-                    'output_tokens': cb.usage_metadata[self.model_name]['output_tokens'],
+                    'input_tokens': cb.usage_metadata[self.model_name_alias]['input_tokens'],
+                    'output_tokens': cb.usage_metadata[self.model_name_alias]['output_tokens'],
                 }
                 content = summary.content
         else:

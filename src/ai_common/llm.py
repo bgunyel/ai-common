@@ -73,7 +73,7 @@ def get_llm(model_name: ModelNames,
             llm = ChatOllama(
                 model = model_name_str,
                 client_kwargs={
-                    'headers': {'Authorization': f'Bearer {api_key}'}
+                    'headers': {'Authorization': f'Bearer {api_key.get_secret_value()}'}
                 },
                 base_url = "https://ollama.com",
                 **model_args,

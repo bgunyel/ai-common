@@ -1,6 +1,6 @@
 import asyncio
 from typing import Any, Final
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 from langchain_core.callbacks import get_usage_metadata_callback
 from langchain_core.runnables import RunnableConfig
 
@@ -37,7 +37,7 @@ Include all necessary information related with the topic in your summary.
 
 class WebSearchNode:
     def __init__(self,
-                 web_search_api_key: str,
+                 web_search_api_key: SecretStr,
                  model_params: dict[str, Any],
                  configuration_module_prefix: str):
         self.web_search = WebSearch(api_key=web_search_api_key)

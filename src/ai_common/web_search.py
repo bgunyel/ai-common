@@ -1,3 +1,4 @@
+from pydantic import SecretStr
 from tavily import AsyncTavilyClient
 
 from .enums import TavilySearchCategory, TavilySearchDepth
@@ -80,8 +81,8 @@ class WebSearch:
         The AsyncTavilyClient is designed to be thread-safe, but it's recommended to use
         this class within a single asyncio event loop context for optimal performance.
     """
-    def __init__(self, api_key: str):
-        self.client = AsyncTavilyClient(api_key=api_key)
+    def __init__(self, api_key: SecretStr):
+        self.client = AsyncTavilyClient(api_key=api_key.get_secret_value())
 
     async def search(self,
                      search_queries: list[str],

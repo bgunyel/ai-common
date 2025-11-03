@@ -1,24 +1,15 @@
 from typing import Any
 
-from .enums import LlmServers
+from .enums import LlmServers, ModelNames
 
 PRICE_USD_PER_MILLION_TOKENS = {
     LlmServers.GROQ.value: {
-        'deepseek-r1-distill-llama-70b': {'input_tokens': 0.75, 'output_tokens': 0.99},
-        'gemma2-9b-it': {'input_tokens': 0.20, 'output_tokens': 0.20},
-        'llama3-70b-8192': {'input_tokens': 0.59, 'output_tokens': 0.79},
-        'llama3-8b-8192': {'input_tokens': 0.05, 'output_tokens': 0.08},
-        'llama-3.1-8b-instant': {'input_tokens': 0.05, 'output_tokens': 0.08},
-        'llama-3.3-70b-versatile': {'input_tokens': 0.59, 'output_tokens': 0.79},
-        'meta-llama/llama-4-maverick-17b-128e-instruct': {'input_tokens': 0.20, 'output_tokens': 0.60},
-        'meta-llama/llama-4-scout-17b-16e-instruct': {'input_tokens': 0.11, 'output_tokens': 0.34},
-        'meta-llama/llama-guard-4-12b': {'input_tokens': 0.20, 'output_tokens': 0.20},
-        'mistral-saba-24b': {'input_tokens': 0.79, 'output_tokens': 0.79},
-        'moonshotai/kimi-k2-instruct': {'input_tokens': 1.00, 'output_tokens': 3.00},
-        'openai/gpt-oss-120b': {'input_tokens': 0.15, 'output_tokens': 0.75},
-        'openai/gpt-oss-20b': {'input_tokens': 0.10, 'output_tokens': 0.50},
-        'qwen-qwq-32b': {'input_tokens': 0.29, 'output_tokens': 0.39},
-        'qwen/qwen3-32b': {'input_tokens': 0.29, 'output_tokens': 0.59},
+        ModelNames.GPT_OSS_120B: {'input_tokens': 0.15, 'output_tokens': 0.75},
+        ModelNames.GPT_OSS_20B: {'input_tokens': 0.10, 'output_tokens': 0.50},
+    },
+    LlmServers.OLLAMA.value: {
+        ModelNames.GPT_OSS_120B: {'input_tokens': 0.00, 'output_tokens': 0.00},
+        ModelNames.GPT_OSS_20B: {'input_tokens': 0.00, 'output_tokens': 0.00},
     },
     LlmServers.OPENAI.value: {
         'gpt-4.1': {'input_tokens': 2.00, 'output_tokens': 8.00},

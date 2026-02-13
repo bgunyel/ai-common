@@ -66,9 +66,17 @@ def get_llm(model_name: ModelNames,
                 **model_args,
             )
         case LlmServers.OPENAI:
+
+            if ('reasoning' not in model_args.keys()) and ('reasoning_effort' in model_args.keys()):
+                model_args['reasoning'] = {
+                    'effort': model_args.pop('reasoning_effort'),
+                    'summary': 'auto',
+                }
+
             llm = ChatOpenAI(
                 model = model_name_str,
                 api_key = api_key,
+                use_responses_api = True,
                 **model_args,
             )
         case LlmServers.OLLAMA:

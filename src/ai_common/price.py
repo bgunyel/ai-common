@@ -12,15 +12,11 @@ PRICE_USD_PER_MILLION_TOKENS = {
         ModelNames.GPT_OSS_20B: {'input_tokens': 0.00, 'output_tokens': 0.00},
     },
     LlmServers.OPENAI.value: {
-        'gpt-4.1': {'input_tokens': 2.00, 'output_tokens': 8.00},
-        'gpt-4.1-mini': {'input_tokens': 0.40, 'output_tokens': 1.60},
-        'gpt-4.1-nano': {'input_tokens': 0.10, 'output_tokens': 0.40},
-        'gpt-4o': {'input_tokens': 2.50, 'output_tokens': 10.00},
-        'gpt-4o-mini': {'input_tokens': 0.15, 'output_tokens': 0.60},
-        'o1': {'input_tokens': 15.00, 'output_tokens': 60.00},
-        'o3': {'input_tokens': 10.00, 'output_tokens': 40.00},
-        'o1-mini': {'input_tokens': 1.10, 'output_tokens': 4.40},
-        'o3-mini': {'input_tokens': 1.10, 'output_tokens': 4.40},
+        ModelNames.GPT_5: {'input_tokens': 1.25, 'output_tokens': 10.00},
+        ModelNames.GPT_5_MINI: {'input_tokens': 0.25, 'output_tokens': 2.00},
+        ModelNames.GPT_5_1: {'input_tokens': 1.25, 'output_tokens': 10.00},
+        ModelNames.GPT_5_2: {'input_tokens': 1.75, 'output_tokens': 14.00},
+
     },
     LlmServers.ANTHROPIC.value: {
         'claude-opus-4-latest': {'input_tokens': 15.00, 'output_tokens': 75.00},

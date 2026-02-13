@@ -18,6 +18,10 @@ class ModelNames(Enum): # Most used model names in alphabetical order
         * openai/gpt-oss-120b on Groq
         * gpt-oss:120b-cloud on Ollama Cloud
     """
+    GPT_5 = 'gpt-5'
+    GPT_5_MINI = 'gpt-5-mini'
+    GPT_5_1 = 'gpt-5.1'
+    GPT_5_2 = 'gpt-5.2'
     GPT_OSS_120B = 'gpt-oss-120b'
     GPT_OSS_20B = 'gpt-oss-20b'
     LLAMA_3_3_70B_VERSATILE = 'llama-3.3-70b-versatile'

@@ -73,7 +73,7 @@ def get_llm(model_name: ModelNames,
                     'summary': 'auto',
                 }
 
-            if model_args['reasoning']['effort'] is not 'none':
+            if model_args['reasoning']['effort'] != 'none':
                 _ = model_args.pop('top_p', 'N/A')
                 _ = model_args.pop('temperature', 'N/A')
                 _ = model_args.pop('logprobs', 'N/A')

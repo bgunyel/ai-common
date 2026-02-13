@@ -73,6 +73,11 @@ def get_llm(model_name: ModelNames,
                     'summary': 'auto',
                 }
 
+            if model_args['reasoning']['effort'] is not 'none':
+                _ = model_args.pop('top_p', 'N/A')
+                _ = model_args.pop('temperature', 'N/A')
+                _ = model_args.pop('logprobs', 'N/A')
+
             llm = ChatOpenAI(
                 model = model_name_str,
                 api_key = api_key,

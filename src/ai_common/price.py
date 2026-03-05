@@ -6,10 +6,12 @@ PRICE_USD_PER_MILLION_TOKENS = {
     LlmServers.GROQ.value: {
         ModelNames.GPT_OSS_120B: {'input_tokens': 0.15, 'output_tokens': 0.75},
         ModelNames.GPT_OSS_20B: {'input_tokens': 0.10, 'output_tokens': 0.50},
+        ModelNames.KIMI_K2_0905: {'input_tokens': 1.00, 'output_tokens': 3.00},
     },
     LlmServers.OLLAMA.value: {
         ModelNames.GPT_OSS_120B: {'input_tokens': 0.00, 'output_tokens': 0.00},
         ModelNames.GPT_OSS_20B: {'input_tokens': 0.00, 'output_tokens': 0.00},
+        ModelNames.KIMI_K2_0905: {'input_tokens': 0.00, 'output_tokens': 0.00},
     },
     LlmServers.OPENAI.value: {
         ModelNames.GPT_5: {'input_tokens': 1.25, 'output_tokens': 10.00},

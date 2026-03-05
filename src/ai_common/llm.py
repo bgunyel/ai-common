@@ -19,7 +19,11 @@ MODEL_NAME_ALIAS_DICT = {
         ModelNames.GPT_OSS_20B: {
             LlmServers.GROQ: 'openai/gpt-oss-20b',
             LlmServers.OLLAMA: 'gpt-oss:20b'
-        }
+        },
+        ModelNames.KIMI_K2_0905: {
+            LlmServers.GROQ: 'moonshotai/kimi-k2-instruct-0905',
+            LlmServers.OLLAMA: 'kimi-k2:1t-cloud'
+        },
     }
 
 

@@ -24,6 +24,7 @@ class ModelNames(Enum): # Most used model names in alphabetical order
     GPT_5_2 = 'gpt-5.2'
     GPT_OSS_120B = 'gpt-oss-120b'
     GPT_OSS_20B = 'gpt-oss-20b'
+    KIMI_K2_0905 = 'kimi-k2-instruct-0905'
     LLAMA_3_3_70B_VERSATILE = 'llama-3.3-70b-versatile'
 
 

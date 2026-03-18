@@ -18,6 +18,8 @@ class ModelNames(Enum): # Most used model names in alphabetical order
         * openai/gpt-oss-120b on Groq
         * gpt-oss:120b-cloud on Ollama Cloud
     """
+    DEEPSEEK_V_3_2 = 'deepseek-v3.2'
+    GLM_5 = 'glm-5'
     GPT_5 = 'gpt-5'
     GPT_5_MINI = 'gpt-5-mini'
     GPT_5_1 = 'gpt-5.1'
@@ -25,7 +27,10 @@ class ModelNames(Enum): # Most used model names in alphabetical order
     GPT_OSS_120B = 'gpt-oss-120b'
     GPT_OSS_20B = 'gpt-oss-20b'
     KIMI_K2_0905 = 'kimi-k2-instruct-0905'
+    KIMI_K_2_5 = 'kimi-k2.5'
     LLAMA_3_3_70B_VERSATILE = 'llama-3.3-70b-versatile'
+    MINIMAX_M_2_5 = 'minimax-m2.5'
+    QWEN_3_5 = 'qwen-3.5'
 
 
 class TavilySearchCategory(Enum):

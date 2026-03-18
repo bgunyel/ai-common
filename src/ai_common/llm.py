@@ -24,6 +24,22 @@ MODEL_NAME_ALIAS_DICT = {
             LlmServers.GROQ: 'moonshotai/kimi-k2-instruct-0905',
             LlmServers.OLLAMA: 'kimi-k2:1t-cloud'
         },
+        ModelNames.GLM_5: {
+            LlmServers.OLLAMA: 'glm-5:cloud'
+        },
+        ModelNames.KIMI_K_2_5: {
+            LlmServers.OLLAMA: 'kimi-k2.5:cloud'
+        },
+        ModelNames.QWEN_3_5: {
+            LlmServers.OLLAMA: 'qwen3.5:397b-cloud'
+        },
+        ModelNames.MINIMAX_M_2_5: {
+            LlmServers.OLLAMA: 'minimax-m2.5:cloud'
+        },
+        ModelNames.DEEPSEEK_V_3_2: {
+            LlmServers.OLLAMA: 'deepseek-v3.2:cloud'
+        },
+
     }
 
 

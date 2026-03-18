@@ -9,16 +9,20 @@ PRICE_USD_PER_MILLION_TOKENS = {
         ModelNames.KIMI_K2_0905: {'input_tokens': 1.00, 'output_tokens': 3.00},
     },
     LlmServers.OLLAMA.value: {
+        ModelNames.DEEPSEEK_V_3_2: {'input_tokens': 0.00, 'output_tokens': 0.00},
+        ModelNames.GLM_5: {'input_tokens': 0.00, 'output_tokens': 0.00},
         ModelNames.GPT_OSS_120B: {'input_tokens': 0.00, 'output_tokens': 0.00},
         ModelNames.GPT_OSS_20B: {'input_tokens': 0.00, 'output_tokens': 0.00},
         ModelNames.KIMI_K2_0905: {'input_tokens': 0.00, 'output_tokens': 0.00},
+        ModelNames.KIMI_K_2_5: {'input_tokens': 0.00, 'output_tokens': 0.00},
+        ModelNames.MINIMAX_M_2_5: {'input_tokens': 0.00, 'output_tokens': 0.00},
+        ModelNames.QWEN_3_5: {'input_tokens': 0.00, 'output_tokens': 0.00},
     },
     LlmServers.OPENAI.value: {
         ModelNames.GPT_5: {'input_tokens': 1.25, 'output_tokens': 10.00},
         ModelNames.GPT_5_MINI: {'input_tokens': 0.25, 'output_tokens': 2.00},
         ModelNames.GPT_5_1: {'input_tokens': 1.25, 'output_tokens': 10.00},
         ModelNames.GPT_5_2: {'input_tokens': 1.75, 'output_tokens': 14.00},
-
     },
     LlmServers.ANTHROPIC.value: {
         'claude-opus-4-latest': {'input_tokens': 15.00, 'output_tokens': 75.00},

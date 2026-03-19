@@ -36,6 +36,12 @@ MODEL_NAME_ALIAS_DICT = {
         ModelNames.MINIMAX_M_2_5: {
             LlmServers.OLLAMA: 'minimax-m2.5:cloud'
         },
+        ModelNames.MINIMAX_M_2_7: {
+            LlmServers.OLLAMA: 'minimax-m2.7:cloud'
+        },
+        ModelNames.NEMOTRON_3_SUPER: {
+            LlmServers.OLLAMA: 'nemotron-3-super:cloud'
+        },
         ModelNames.DEEPSEEK_V_3_2: {
             LlmServers.OLLAMA: 'deepseek-v3.2:cloud'
         },

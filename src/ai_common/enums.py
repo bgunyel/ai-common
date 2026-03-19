@@ -30,6 +30,8 @@ class ModelNames(Enum): # Most used model names in alphabetical order
     KIMI_K_2_5 = 'kimi-k2.5'
     LLAMA_3_3_70B_VERSATILE = 'llama-3.3-70b-versatile'
     MINIMAX_M_2_5 = 'minimax-m2.5'
+    MINIMAX_M_2_7 = 'minimax-m2.7'
+    NEMOTRON_3_SUPER = 'nemotron-3-super'
     QWEN_3_5 = 'qwen-3.5'
 
 

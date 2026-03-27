@@ -79,10 +79,6 @@ def get_llm(model_name: ModelNames,
                 **model_args,
             )
         case LlmServers.GOOGLE:
-            if 'top_p' in model_args.keys():
-                model_args['model_kwargs'] = {
-                    'top_p': model_args.pop('top_p')
-                }
             # https://ai.google.dev/gemini-api/docs/gemini-3#temperature
             if ('temperature' in model_args.keys()) and (model_name_str.startswith('gemini-3')):
                 model_args['temperature'] = 1.0

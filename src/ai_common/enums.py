@@ -3,8 +3,8 @@ from typing import ClassVar
 from pydantic import BaseModel, ConfigDict
 
 class LlmServers(Enum): # Alphabetical Order
-    # https://python.langchain.com/api_reference/langchain/chat_models/langchain.chat_models.base.init_chat_model.html
     ANTHROPIC = 'anthropic'
+    GOOGLE = 'google'
     GROQ = 'groq'
     OPENAI = 'openai'
     OLLAMA = 'ollama'
@@ -33,6 +33,10 @@ class ModelNames(Enum): # Most used model names in alphabetical order
     MINIMAX_M_2_7 = 'minimax-m2.7'
     NEMOTRON_3_SUPER = 'nemotron-3-super'
     QWEN_3_5 = 'qwen-3.5'
+
+    GEMINI_3_FLASH_PREVIEW = 'gemini-3-flash-preview'
+    GEMINI_3_1_PRO_PREVIEW = 'gemini-3.1-pro-preview'
+    GEMINI_3_1_FLASH_LITE_PREVIEW = 'gemini-3.1-flash-lite-preview'
 
 
 class TavilySearchCategory(Enum):

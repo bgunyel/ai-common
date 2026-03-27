@@ -34,6 +34,7 @@ class ModelNames(Enum): # Most used model names in alphabetical order
     NEMOTRON_3_SUPER = 'nemotron-3-super'
     QWEN_3_5 = 'qwen-3.5'
 
+    # Update Gemini-3 Family,
     GEMINI_3_FLASH_PREVIEW = 'gemini-3-flash-preview'
     GEMINI_3_1_PRO_PREVIEW = 'gemini-3.1-pro-preview'
     GEMINI_3_1_FLASH_LITE_PREVIEW = 'gemini-3.1-flash-lite-preview'

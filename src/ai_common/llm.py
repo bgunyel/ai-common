@@ -79,8 +79,26 @@ def get_llm(model_name: ModelNames,
                 **model_args,
             )
         case LlmServers.GOOGLE:
-            pass
+            if 'top_p' in model_args.keys():
+                model_args['model_kwargs'] = {
+                    'top_p': model_args.pop('top_p')
+                }
+            # https://ai.google.dev/gemini-api/docs/gemini-3#temperature
+            if ('temperature' in model_args.keys()) and (model_name_str.startswith('gemini-3')):
+                model_args['temperature'] = 1.0
 
+            if ('reasoning' in model_args.keys()) and ('thinking_level' not in model_args.keys()):
+                model_args['thinking_level'] = model_args.pop('reasoning')
+            if ('reasoning_effort' in model_args.keys()) and ('thinking_level' not in model_args.keys()):
+                model_args['thinking_level'] = model_args.pop('reasoning_effort')
+
+            llm = ChatGoogleGenerativeAI(
+                model = model_name_str,
+                api_key = api_key,
+                max_tokens=None,
+                timeout=None,
+                **model_args,
+            )
         case LlmServers.GROQ:
             if 'top_p' in model_args.keys():
                 model_args['model_kwargs'] = {

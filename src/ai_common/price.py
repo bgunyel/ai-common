@@ -3,17 +3,17 @@ from typing import Any
 from .enums import LlmServers, ModelNames
 
 PRICE_USD_PER_MILLION_TOKENS = {
-    LlmServers.GOOGLE.value: {
+    LlmServers.GOOGLE: {
         ModelNames.GEMINI_3_FLASH_PREVIEW: {'input_tokens': 0.50, 'output_tokens': 3.00},
         ModelNames.GEMINI_3_1_PRO_PREVIEW: {'input_tokens': 2.00, 'output_tokens': 12.00},
         ModelNames.GEMINI_3_1_FLASH_LITE_PREVIEW: {'input_tokens': 0.25, 'output_tokens': 1.50},
     },
-    LlmServers.GROQ.value: {
+    LlmServers.GROQ: {
         ModelNames.GPT_OSS_120B: {'input_tokens': 0.15, 'output_tokens': 0.75},
         ModelNames.GPT_OSS_20B: {'input_tokens': 0.10, 'output_tokens': 0.50},
         ModelNames.KIMI_K2_0905: {'input_tokens': 1.00, 'output_tokens': 3.00},
     },
-    LlmServers.OLLAMA.value: {
+    LlmServers.OLLAMA: {
         ModelNames.DEEPSEEK_V_3_2: {'input_tokens': 0.00, 'output_tokens': 0.00},
         ModelNames.GLM_5: {'input_tokens': 0.00, 'output_tokens': 0.00},
         ModelNames.GPT_OSS_120B: {'input_tokens': 0.00, 'output_tokens': 0.00},
@@ -23,13 +23,13 @@ PRICE_USD_PER_MILLION_TOKENS = {
         ModelNames.MINIMAX_M_2_5: {'input_tokens': 0.00, 'output_tokens': 0.00},
         ModelNames.QWEN_3_5: {'input_tokens': 0.00, 'output_tokens': 0.00},
     },
-    LlmServers.OPENAI.value: {
+    LlmServers.OPENAI: {
         ModelNames.GPT_5: {'input_tokens': 1.25, 'output_tokens': 10.00},
         ModelNames.GPT_5_MINI: {'input_tokens': 0.25, 'output_tokens': 2.00},
         ModelNames.GPT_5_1: {'input_tokens': 1.25, 'output_tokens': 10.00},
         ModelNames.GPT_5_2: {'input_tokens': 1.75, 'output_tokens': 14.00},
     },
-    LlmServers.ANTHROPIC.value: {
+    LlmServers.ANTHROPIC: {
         'claude-opus-4-latest': {'input_tokens': 15.00, 'output_tokens': 75.00},
         'claude-sonnet-4-latest': {'input_tokens': 3.00, 'output_tokens': 15.00},
         'claude-3-5-haiku-latest': {'input_tokens': 0.80, 'output_tokens': 4.00},

@@ -37,7 +37,9 @@ class ModelNames(Enum): # Most used model names in alphabetical order
     # Update Gemini-3 Family,
     GEMINI_3_FLASH_PREVIEW = 'gemini-3-flash-preview'
     GEMINI_3_1_PRO_PREVIEW = 'gemini-3.1-pro-preview'
-    GEMINI_3_1_FLASH_LITE_PREVIEW = 'gemini-3.1-flash-lite-preview'
+    GEMINI_3_1_FLASH_LITE = 'gemini-3.1-flash-lite'
+    GEMINI_3_5_FLASH = 'gemini-3.5-flash'
+
 
 
 class TavilySearchCategory(Enum):

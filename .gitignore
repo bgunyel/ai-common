@@ -14,6 +14,7 @@ __pycache__/
 input/
 out/
 docs/
+tmp/
 
 # Environment Variables
 .env

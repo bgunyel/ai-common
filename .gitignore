@@ -19,4 +19,7 @@ tmp/
 # Environment Variables
 .env
 
+# Security tooling caches
+.guarddog-cache.json
+
 

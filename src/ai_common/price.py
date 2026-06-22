@@ -6,7 +6,7 @@ PRICE_USD_PER_MILLION_TOKENS = {
     LlmServers.GOOGLE: {
         ModelNames.GEMINI_3_FLASH_PREVIEW: {'input_tokens': 0.50, 'output_tokens': 3.00},
         ModelNames.GEMINI_3_1_PRO_PREVIEW: {'input_tokens': 2.00, 'output_tokens': 12.00},
-        ModelNames.GEMINI_3_1_FLASH_LITE_PREVIEW: {'input_tokens': 0.25, 'output_tokens': 1.50},
+        ModelNames.GEMINI_3_1_FLASH_LITE: {'input_tokens': 0.25, 'output_tokens': 1.50},
     },
     LlmServers.GROQ: {
         ModelNames.GPT_OSS_120B: {'input_tokens': 0.15, 'output_tokens': 0.75},

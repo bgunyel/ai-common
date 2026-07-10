@@ -6,8 +6,9 @@ class LlmServers(Enum): # Alphabetical Order
     ANTHROPIC = 'anthropic'
     GOOGLE = 'google'
     GROQ = 'groq'
-    OPENAI = 'openai'
     OLLAMA = 'ollama'
+    OPENAI = 'openai'
+    OPENROUTER = 'openrouter'
     VLLM = 'vllm'
 
 class ModelNames(Enum): # Most used model names in alphabetical order
@@ -19,27 +20,33 @@ class ModelNames(Enum): # Most used model names in alphabetical order
         * gpt-oss:120b-cloud on Ollama Cloud
     """
     DEEPSEEK_V_3_2 = 'deepseek-v3.2'
+    DEEPSEEK_V_4_FLASH = 'deepseek-v4-flash'
+
+    GEMINI_3_FLASH_PREVIEW = 'gemini-3-flash-preview'
+    GEMINI_3_1_PRO_PREVIEW = 'gemini-3.1-pro-preview'
+    GEMINI_3_1_FLASH_LITE = 'gemini-3.1-flash-lite'
+    GEMINI_3_5_FLASH = 'gemini-3.5-flash'
+
     GLM_5 = 'glm-5'
+
     GPT_5 = 'gpt-5'
     GPT_5_MINI = 'gpt-5-mini-2025-08-07'
     GPT_5_1 = 'gpt-5.1'
     GPT_5_2 = 'gpt-5.2'
     GPT_OSS_120B = 'gpt-oss-120b'
     GPT_OSS_20B = 'gpt-oss-20b'
+
     KIMI_K2_0905 = 'kimi-k2-instruct-0905'
     KIMI_K_2_5 = 'kimi-k2.5'
+
     LLAMA_3_3_70B_VERSATILE = 'llama-3.3-70b-versatile'
+
     MINIMAX_M_2_5 = 'minimax-m2.5'
     MINIMAX_M_2_7 = 'minimax-m2.7'
+
     NEMOTRON_3_SUPER = 'nemotron-3-super'
+
     QWEN_3_5 = 'qwen-3.5'
-
-    # Update Gemini-3 Family,
-    GEMINI_3_FLASH_PREVIEW = 'gemini-3-flash-preview'
-    GEMINI_3_1_PRO_PREVIEW = 'gemini-3.1-pro-preview'
-    GEMINI_3_1_FLASH_LITE = 'gemini-3.1-flash-lite'
-    GEMINI_3_5_FLASH = 'gemini-3.5-flash'
-
 
 
 class TavilySearchCategory(Enum):

@@ -29,3 +29,7 @@ build-backend = "hatchling.build"
 [dependency-groups]
 test = ["pytest>=9.0.3"]
 lint = ["ruff<1.0,>=0.5"]
+scripts = [
+    "pydantic-settings>=2.14.2",
+    "rich>=15.0.0",
+]

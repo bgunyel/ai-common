@@ -24,7 +24,7 @@ scan:
 		echo "guarddog not installed. Install via 'uv tool install guarddog', 'pip install guarddog', or 'docker pull ghcr.io/datadog/guarddog'"; \
 		exit 1; \
 	}
-	@uv export --no-hashes -o $(GUARDDOG_CACHE) >/dev/null
+	@uv export --no-hashes --all-groups -o $(GUARDDOG_CACHE) >/dev/null
 	@python3 scripts/guarddog_cached.py $(GUARDDOG_CACHE); \
 		status=$$?; \
 		rm -f $(GUARDDOG_CACHE); \
@@ -60,7 +60,7 @@ upgrade-safe:
 		exit 1; \
 	}
 	@echo "→ Tier 2 — GuardDog static analysis on candidate deps (cached)..."
-	@uv export --no-hashes -o $(GUARDDOG_CACHE) >/dev/null || { mv -f uv.lock.preupgrade uv.lock; exit 1; }
+	@uv export --no-hashes --all-groups -o $(GUARDDOG_CACHE) >/dev/null || { mv -f uv.lock.preupgrade uv.lock; exit 1; }
 	@python3 scripts/guarddog_cached.py $(GUARDDOG_CACHE); \
 		status=$$?; \
 		rm -f $(GUARDDOG_CACHE); \
@@ -71,10 +71,10 @@ upgrade-safe:
 			exit 1; \
 		fi
 	@rm -f uv.lock.preupgrade
-	@uv sync
+	@uv sync --all-groups
 	@echo "✓ Clean across both tiers. uv.lock updated and environment synced."
 
 # Blind upgrade with only the 7-day quarantine — bypasses both gates.
 # Kept for parity; prefer `upgrade-safe`.
 upgrade:
-	uv sync --upgrade --exclude-newer $$(date -u -d '7 days ago' '+%Y-%m-%dT%H:%M:%SZ')
+	uv sync --all-groups --upgrade --exclude-newer $$(date -u -d '7 days ago' '+%Y-%m-%dT%H:%M:%SZ')

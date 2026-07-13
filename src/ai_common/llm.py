@@ -5,6 +5,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
+from langchain_openrouter import ChatOpenRouter
 from ollama import Client
 from pydantic import SecretStr
 
@@ -149,6 +150,22 @@ def get_llm(model_name: ModelNames,
                 base_url = "https://ollama.com",
                 **model_args,
             )
+        case LlmServers.OPENROUTER:
+            temperature = model_args.pop('temperature', 0)
+            top_p = model_args.pop('top_p', 0.95)
+            reasoning = {
+                'effort': model_args.pop('reasoning_effort', None),
+                'summary': 'auto',
+            }
+            llm = ChatOpenRouter(
+                model = model_name_str,
+                api_key=api_key,
+                temperature=temperature,
+                top_p=top_p,
+                reasoning=reasoning,
+                model_kwargs=model_args,
+            )
+
         case LlmServers.VLLM:
             # client = OpenAI(base_url=f'{llm_base_url}/v1', api_key=model_params['vllm_api_key'])
             # max_model_len = client.models.list().data[0].model_extra['max_model_len']  # Keep this

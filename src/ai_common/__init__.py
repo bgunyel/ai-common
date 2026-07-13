@@ -2,7 +2,7 @@ from .base import CfgBase, ConfigurationBase, GraphBase, SearchQuery, Queries
 from .enums import LlmServers, ModelNames, NodeBase, TavilySearchCategory, TavilySearchDepth
 from .engine import Engine
 from .llm import load_ollama_model, get_llm, get_model_name_alias
-from .price import calculate_token_cost
+from .price import calculate_token_cost, calculate_token_cost_for_one_model
 from .utils import (
     get_config_from_runnable,
     get_flow_chart,
@@ -29,6 +29,7 @@ __all__ = [
     'Engine',
     'WebSearch',
     'calculate_token_cost',
+    'calculate_token_cost_for_one_model',
     'tavily_search_async',
     'load_ollama_model',
     'get_llm',

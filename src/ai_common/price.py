@@ -38,7 +38,10 @@ PRICE_USD_PER_MILLION_TOKENS = {
 }
 
 
-def calculate_token_cost_for_one_model(params: dict[str, Any], token_usage: dict[str, Any]) -> dict[str, Any]:
+def calculate_token_cost_for_one_model(
+        params: dict[str, Any],
+        token_usage: dict[str, Any]
+) -> dict[str, Any]:
     model_provider = params['model_provider']
     model = params['model']
     price_dict = PRICE_USD_PER_MILLION_TOKENS[model_provider][model]
@@ -49,7 +52,10 @@ def calculate_token_cost_for_one_model(params: dict[str, Any], token_usage: dict
         'cost': cost,
     }
 
-def calculate_token_cost(llm_config: dict[str, Any], token_usage: dict[str, Any]) -> tuple[list[dict[str, Any]], float]:
+def calculate_token_cost(
+        llm_config: dict[str, Any],
+        token_usage: dict[str, Any]
+) -> tuple[list[dict[str, Any]], float]:
     total_cost = 0
     cost_list = []
     for model_type, params in llm_config.items():

@@ -24,6 +24,9 @@ dependencies = [
 
 ]
 
+[project.scripts]
+guarddog-cached = "ai_common.security.guarddog_cached:cli"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

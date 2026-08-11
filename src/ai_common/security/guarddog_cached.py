@@ -17,14 +17,29 @@ supply-chain gate must not have. So this wrapper scans with
 * `errors` — rules that did not run. Non-empty means the package was not
   fully checked, which is reported as INCOMPLETE and never as a pass.
   "Not checked" and "no problems found" are different states.
-* `results` — which rules matched. Rules in `BLOCKING_RULES` fail the
-  gate; the rest are advisory, because ordinary packages trip the noisier
-  heuristics all the time (`getattr` reads as api-obfuscation, an
-  api.telegram.org URL reads as shady-links).
+* `risks` — GuardDog's correlated findings, each carrying a severity.
+  A risk at `BLOCKING_SEVERITY` or above fails the gate; the rest are
+  advisory, because ordinary packages trip the noisier heuristics all the
+  time (tqdm scores 7.2/10 for an api.telegram.org URL in a file called
+  `contrib/telegram.py`).
+
+Not on rule names
+-----------------
+The gate used to block on a list of seven rule names. GuardDog 3 renamed
+every rule onto a new `capability-*`/`threat-*` taxonomy, none of the
+seven survived, and the gate went inert — matching nothing, blocking
+nothing, announcing nothing. Severity is a three-value vocabulary that
+GuardDog derives for us and does not churn.
+
+The same failure must not be possible twice, so **anything this wrapper
+does not understand blocks rather than passes**: an unrecognised severity
+is treated as blocking, and a completed scan whose report has no `risks`
+is INCOMPLETE rather than clean. A gate that stops understanding its
+input has to say so.
 
 The verdict is computed when an entry is read, not when it is written, so
-changing `BLOCKING_RULES` or accepting a finding re-decides every cached
-package without re-scanning anything.
+changing `BLOCKING_SEVERITY` or accepting a finding re-decides every
+cached package without re-scanning anything.
 
 The shared cache
 ----------------
@@ -78,37 +93,64 @@ LEGACY_CACHE_NAME = ".guarddog-cache.json"
 
 #: Bumped when the on-disk shape changes. Schemas 1 and 2 stored GuardDog's
 #: human-readable text and no structured verdict, so they cannot answer the
-#: question the gate asks — "did this scan actually complete?" — and are
-#: discarded rather than guessed at from prose.
-CACHE_SCHEMA = 3
+#: question the gate asks — "did this scan actually complete?". Schema 3
+#: stored matched rule *names*, which GuardDog 3 renamed wholesale. All three
+#: are discarded rather than guessed at.
+CACHE_SCHEMA = 4
 
 ACCEPTED_SCHEMA = 1
 
-#: Rules that fail the gate. These describe a package doing something a
-#: dependency has no business doing — executing commands, fetching and
-#: running binaries, exfiltrating local data. Every other rule is advisory:
-#: reported, counted, never blocking, because on a real dependency tree the
-#: heuristic rules fire constantly on innocent code.
-BLOCKING_RULES = frozenset({
-    "code-execution",
-    "exec-base64",
-    "download-executable",
-    "silent-process-execution",
-    "exfiltrate-sensitive-data",
-    "cmd-overwrite",
-    "steganography",
-})
+#: Risk severities GuardDog can attach to a correlated risk, weakest first.
+#:
+#: This replaces a hand-curated list of rule names. GuardDog 3 renamed all 61
+#: of its rules onto a new `capability-*`/`threat-*` taxonomy and not one of
+#: the seven names the gate blocked on still existed, so the gate matched
+#: nothing and passed everything — inert, and silent about it. Severity is a
+#: three-value vocabulary that GuardDog derives *for* us, and it survives
+#: rules being added, renamed or re-tuned.
+#:
+#: A risk's severity is its threat rule's severity, downgraded one level when
+#: the correlating capability is in another file and two when it is in another
+#: category. So `high` means a high-severity rule that either stands alone —
+#: install-time, or specific enough to be malware-only — or correlates inside
+#: a single file.
+RISK_SEVERITIES = ("low", "medium", "high")
+
+#: Risks at or above this severity fail the gate; the rest are advisory.
+BLOCKING_SEVERITY = "high"
 
 CLEAN = "clean"
 ADVISORY = "advisory"
 BLOCKED = "blocked"
 INCOMPLETE = "incomplete"
 
-#: Keys this wrapper reads out of GuardDog's JSON report. Their *absence* is
-#: treated as a scan failure rather than as emptiness — otherwise a future
-#: GuardDog that renames them would make every package read as clean, which
-#: is the exact-exit-code trap one level up.
-REQUIRED_REPORT_KEYS = ("errors", "results")
+#: `errors` is the field the whole verdict rests on: it is what distinguishes
+#: "checked and found nothing" from "never checked". Its *absence* is treated
+#: as a scan failure rather than as emptiness — otherwise a future GuardDog
+#: that renamed it would make every package on the machine read as clean,
+#: which is the exit-code trap one level up.
+#:
+#: `risks` is required on the same terms and for the same reason: a completed
+#: scan that reports no `risks` at all is a report this wrapper cannot read,
+#: not a clean package. That is what stops a future rename from repeating the
+#: silent-inert-gate failure.
+#:
+#: `results` is deliberately not in either category. GuardDog omits it
+#: entirely from a report whose scan failed, so requiring it unconditionally
+#: turns a legible failure into "unrecognised report shape" and discards the
+#: real message. It is required only when nothing else explains its absence.
+ERRORS_KEY = "errors"
+RESULTS_KEY = "results"
+RISKS_KEY = "risks"
+
+#: Fields kept from each risk. `threat_code` is dropped: it is a multi-line
+#: source excerpt, and this cache is machine-wide and long-lived. The rule,
+#: the location and the description are enough to review a finding, and the
+#: package is still on PyPI if the code itself is wanted.
+RISK_FIELDS = (
+    "name", "category", "severity", "mitre_tactics", "threat_rule",
+    "threat_description", "threat_location", "file_path",
+)
 
 #: Ran out of time before scanning everything. Distinct from 1 (something
 #: actually failed the gate) so a caller can tell "not finished" from "no".
@@ -278,6 +320,16 @@ def parse_requirements(path: Path) -> list[tuple[str, str]]:
     return pairs
 
 
+def _unreadable(detail: str) -> dict:
+    """A report we cannot interpret is a failed scan, never an empty one."""
+    return {
+        "issues": 0,
+        "errors": {"guarddog-cached": f"unrecognised report shape — {detail}; "
+                                      f"refusing to read this as a completed scan"},
+        "risks": [],
+    }
+
+
 def scan_package(name: str, version: str) -> dict:
     """Scan one package and return the facts, never a judgement.
 
@@ -297,60 +349,132 @@ def scan_package(name: str, version: str) -> dict:
             "issues": 0,
             "errors": {"guarddog-cached": f"exit {proc.returncode}, unparseable output: "
                                           f"{detail[-1] if detail else '(no output)'}"},
-            "findings": {},
+            "risks": [],
         }
 
     if not isinstance(report, dict):
-        return {"issues": 0, "errors": {"guarddog-cached": "output was not an object"}, "findings": {}}
+        return {"issues": 0, "errors": {"guarddog-cached": "output was not an object"},
+                "risks": []}
 
-    unrecognised = [
-        key for key in REQUIRED_REPORT_KEYS
-        if not isinstance(report.get(key), dict)
-    ]
-    if unrecognised:
-        return {
-            "issues": 0,
-            "errors": {"guarddog-cached":
-                       f"unrecognised report shape — {', '.join(unrecognised)} missing or not "
-                       f"an object; refusing to read this as a completed scan"},
-            "findings": {},
-        }
+    if not isinstance(report.get(ERRORS_KEY), dict):
+        return _unreadable(f"{ERRORS_KEY!r} is missing or not an object")
 
-    errors = report["errors"]
+    errors = dict(report[ERRORS_KEY])
+
+    # A failing scan reports no `results` at all — the keys are just
+    # ('package', 'issues', 'errors'). That is coherent, not corrupt, and the
+    # `errors` map already says what went wrong; reporting a shape problem
+    # here would replace GuardDog's real message with our own and leave the
+    # user with no idea why the scan failed. Absent `results` is only
+    # suspicious when nothing explains it.
+    results = report.get(RESULTS_KEY)
+    if not isinstance(results, dict):
+        if not errors:
+            return _unreadable(
+                f"{RESULTS_KEY!r} is missing or not an object on a scan that "
+                f"reported no errors"
+            )
+        results = {}
+
+    # The verdict rests on `risks`, so its absence from a scan that claims to
+    # have completed is unreadable rather than reassuring — the gate must not
+    # be able to pass a package by failing to find the field it judges on.
+    risks = report.get(RISKS_KEY)
+    if not isinstance(risks, list):
+        if not errors:
+            return _unreadable(
+                f"{RISKS_KEY!r} is missing or not a list on a scan that "
+                f"reported no errors"
+            )
+        risks = []
+
     if proc.returncode != 0:
-        errors = dict(errors)
         errors.setdefault("guarddog-cached", f"guarddog exited {proc.returncode}")
-
-    findings = {}
-    for rule, matches in (report.get("results") or {}).items():
-        if matches:
-            findings[rule] = matches if isinstance(matches, list) else [{"message": str(matches)}]
 
     return {
         "issues": report.get("issues", 0),
         "errors": errors,
         # `path` is deliberately dropped: it names a temp directory that
         # stopped existing the moment GuardDog returned.
-        "findings": findings,
+        #
+        # `results` is read for the shape check above and then discarded. It
+        # is the raw per-rule match list, roughly twice the size of `risks`,
+        # and nothing reads it now that the verdict comes from `risks` — a
+        # field that looks like it feeds the gate and does not is the hazard
+        # this rework exists to remove. Re-scanning regenerates it; the cache
+        # is a cache, not an archive.
+        "risks": [
+            {field: risk[field] for field in RISK_FIELDS if field in risk}
+            for risk in risks if isinstance(risk, dict)
+        ],
+        "risk_score": _kept_score(report.get("risk_score")),
     }
+
+
+def _kept_score(score: object) -> dict:
+    """GuardDog's own headline score, for the report only — never the verdict.
+
+    tqdm scores 7.2/10 `high_risk` for an api.telegram.org URL in
+    `contrib/telegram.py`, and pyyaml 8.8. Gating on the label would block
+    two of six ordinary packages, so it is shown to the human and ignored by
+    the machine.
+    """
+    if not isinstance(score, dict):
+        return {}
+    return {key: score[key] for key in ("score", "label", "findings_count") if key in score}
+
+
+def severity_blocks(severity: object) -> bool:
+    """Whether a risk of this severity fails the gate. Unknown severities do.
+
+    Defaulting this way round is the whole lesson of the previous gate. That
+    one asked "is this rule name in my blocking list?", so a vocabulary it no
+    longer recognised answered "no" to everything and blocked nothing. Here a
+    severity this wrapper has never heard of is treated as blocking: if
+    GuardDog's vocabulary moves under us the gate becomes noisy, which is
+    survivable, rather than silent, which is not.
+    """
+    if severity not in RISK_SEVERITIES:
+        return True
+    return RISK_SEVERITIES.index(severity) >= RISK_SEVERITIES.index(BLOCKING_SEVERITY)
+
+
+def risk_label(risk: dict) -> str:
+    """How a risk is named in reports and in `accepted.json`.
+
+    The threat rule is preferred over the risk name because it is the
+    narrower of the two: `threat-network-exfiltration` waives one detection,
+    where `risk.network.outbound` would waive every rule that rolls up into
+    it.
+    """
+    return str(risk.get("threat_rule") or risk.get("name") or "unnamed-risk")
 
 
 def verdict_for(entry: dict, waived: set[str]) -> tuple[str, list[str]]:
     """Decide an entry's verdict. Pure, and recomputed on every read.
 
-    Returns the verdict and the rule names that caused it, so the caller
+    Returns the verdict and the identifiers that caused it, so the caller
     can say *why* rather than only *what*.
     """
     unrun = sorted(set(entry.get("errors") or {}) - waived)
     if unrun:
         return INCOMPLETE, unrun
 
-    fired = set(entry.get("findings") or {})
-    blocking = sorted((fired & BLOCKING_RULES) - waived)
+    risks = [risk for risk in (entry.get("risks") or []) if isinstance(risk, dict)]
+    # A waiver names either the threat rule or the rolled-up risk, so that a
+    # reviewer can accept one detection or a whole category deliberately.
+    live = [
+        risk for risk in risks
+        if not ({risk_label(risk), str(risk.get("name") or "")} & waived)
+    ]
+
+    blocking = sorted({
+        risk_label(risk) for risk in live if severity_blocks(risk.get("severity"))
+    })
     if blocking:
         return BLOCKED, blocking
-    if fired:
-        return ADVISORY, sorted(fired)
+    if live:
+        return ADVISORY, sorted({risk_label(risk) for risk in live})
     return CLEAN, []
 
 
@@ -364,13 +488,23 @@ def render(label: str, entry: dict, verdict: str, rules: list[str]) -> str:
     elif verdict == BLOCKED:
         lines.append(f"  ✗ BLOCKED — {label} matched {', '.join(rules)}")
 
-    for rule, matches in sorted((entry.get("findings") or {}).items()):
-        marker = "✗" if rule in rules and verdict == BLOCKED else "·"
-        lines.append(f"  {marker} {rule} ({len(matches)})")
-        for match in matches:
-            location = match.get("location") or ""
-            message = match.get("message") or ""
-            lines.append(f"      {location} {message}".rstrip())
+    score = entry.get("risk_score") or {}
+    if score.get("label") and score.get("label") != "no_risks_detected":
+        # Shown, not acted on — see `_kept_score`.
+        lines.append(f"  · GuardDog score {score.get('score')}/10 ({score['label']})")
+
+    for risk in sorted((entry.get("risks") or []),
+                       key=lambda r: (risk_label(r), str(r.get("threat_location") or ""))):
+        name = risk_label(risk)
+        marker = "✗" if verdict == BLOCKED and name in rules else "·"
+        severity = risk.get("severity", "?")
+        tactics = ", ".join(risk.get("mitre_tactics") or [])
+        lines.append(f"  {marker} {name} [{severity}]"
+                     f"{f' · {tactics}' if tactics else ''}")
+        detail = f"      {risk.get('threat_location') or risk.get('file_path') or ''} " \
+                 f"{risk.get('threat_description') or ''}"
+        if detail.strip():
+            lines.append(detail.rstrip())
     return "\n".join(lines)
 
 
@@ -398,6 +532,7 @@ def main(argv: list[str]) -> int:
     budget = args.time_budget
 
     req_path = Path(args.requirements)
+    print(f"Requirements file: {req_path}")
     if not req_path.exists():
         print(f"requirements file not found: {req_path}", file=sys.stderr)
         return 2

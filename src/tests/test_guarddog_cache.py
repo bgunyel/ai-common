@@ -33,21 +33,62 @@ spec = plan.get(name, {{}})
 time.sleep({delay})
 if spec.get("garbage"):
     print("this is not json"); sys.exit(spec.get("exit", 0))
-print(json.dumps({{
+report = {{
     "package": name,
     "issues": spec.get("issues", 0),
     "errors": spec.get("errors", {{}}),
     "results": spec.get("results", {{}}),
+    "risks": spec.get("risks", []),
+    "risk_score": spec.get("risk_score", {{"score": 0.0, "label": "no_risks_detected"}}),
     "path": "/tmp/ephemeral",
-}}))
+}}
+for key in spec.get("drop", []):
+    report.pop(key, None)
+print(json.dumps(report))
 sys.exit(spec.get("exit", 0))
 '''
 
-CODE_EXEC = {"issues": 1, "results": {"code-execution": [
-    {"location": "setup.py:3", "code": "os.system('curl evil')", "message": "OS command in setup.py"}]}}
-SHADY = {"issues": 2, "results": {"shady-links": [
-    {"location": "a.py:1", "message": "suspicious URL"},
-    {"location": "b.py:2", "message": "suspicious URL"}]}}
+#: A high-severity risk: what the gate exists to stop. Shaped exactly like a
+#: GuardDog 3.1.0 risk, from `threat-process-download-exec` (severity high,
+#: specificity high, so it stands alone rather than needing a capability).
+DOWNLOAD_EXEC = {
+    "issues": 1,
+    "risks": [{
+        "name": "risk.process.spawn",
+        "category": "process",
+        "severity": "high",
+        "mitre_tactics": ["execution"],
+        "threat_rule": "threat-process-download-exec",
+        "threat_description": "Detects download-and-execute patterns",
+        "threat_location": "setup.py:3",
+        "file_path": "setup.py",
+    }],
+    "risk_score": {"score": 9.1, "label": "high_risk", "findings_count": 1},
+}
+
+#: tqdm 4.67.1's real GuardDog 3.1.0 report, recorded 2026-08-11. An innocent
+#: package that scores 7.2/10 `high_risk` because `contrib/telegram.py`
+#: mentions api.telegram.org. Blocking on the score label would block this.
+TQDM_NOISE = {
+    "issues": 6,
+    "risks": [
+        {"name": "risk.network.outbound", "category": "network", "severity": "medium",
+         "mitre_tactics": ["command-and-control"],
+         "threat_rule": "threat-network-outbound-shady-links",
+         "threat_description": "Detects URLs to URL shorteners, file sharing, and "
+                               "suspicious services",
+         "threat_location": "tqdm/contrib/telegram.py:26",
+         "file_path": "tqdm/contrib/telegram.py"},
+        {"name": "risk.network.outbound", "category": "network", "severity": "low",
+         "mitre_tactics": ["exfiltration"],
+         "threat_rule": "threat-network-exfiltration",
+         "threat_description": "Detects URLs to suspicious domains often used for "
+                               "exfiltration or C2",
+         "threat_location": "tqdm/contrib/telegram.py:26",
+         "file_path": "tqdm/contrib/telegram.py"},
+    ],
+    "risk_score": {"score": 7.2, "label": "high_risk", "findings_count": 4},
+}
 BROKEN_RULE = {"errors": {"potentially_compromised_email_domain": "Invalid version: '2013-02-16'"}}
 
 
@@ -131,26 +172,26 @@ def test_a_scan_that_did_not_run_never_counts_as_a_pass(tmp_path, fake_guarddog,
 
 def test_a_blocking_rule_fails_the_gate(tmp_path, fake_guarddog, cache_home):
     rc, out = run_project(tmp_path / "p", ["evil==1.0"], fake_guarddog(), cache_home,
-                          plan={"evil": CODE_EXEC})
+                          plan={"evil": DOWNLOAD_EXEC})
 
     assert rc == 1
-    assert "BLOCKED" in out and "code-execution" in out
+    assert "BLOCKED" in out and "threat-process-download-exec" in out
 
 
 def test_an_advisory_finding_is_reported_but_does_not_fail(tmp_path, fake_guarddog, cache_home):
     """26 of 91 real packages trip a heuristic; blocking on those is unusable."""
     rc, out = run_project(tmp_path / "p", ["noisy==1.0"], fake_guarddog(), cache_home,
-                          plan={"noisy": SHADY})
+                          plan={"noisy": TQDM_NOISE})
 
     assert rc == 0
-    assert "shady-links (2)" in out
+    assert "threat-network-outbound-shady-links [medium]" in out
     assert "✗ BLOCKED" not in out          # the detail line, not the "BLOCKED 0" tally
     assert "BLOCKED 0" in out
 
 
 def test_one_bad_package_fails_a_run_of_many(tmp_path, fake_guarddog, cache_home):
     rc, out = run_project(tmp_path / "p", ["ok==1.0", "evil==1.0", "fine==1.0"],
-                          fake_guarddog(), cache_home, plan={"evil": CODE_EXEC})
+                          fake_guarddog(), cache_home, plan={"evil": DOWNLOAD_EXEC})
 
     assert rc == 1
     assert "clean 2" in out and "BLOCKED 1" in out
@@ -158,48 +199,98 @@ def test_one_bad_package_fails_a_run_of_many(tmp_path, fake_guarddog, cache_home
 
 # --- verdicts, as a pure function ----------------------------------------
 
+def _risk(severity: str, rule: str = "threat-process-download-exec",
+          name: str = "risk.process.spawn") -> dict:
+    return {"name": name, "severity": severity, "threat_rule": rule}
+
+
 def test_incomplete_outranks_findings():
     """A partial scan's findings say nothing about what the unrun rules missed."""
-    entry = {"errors": {"some-rule": "boom"}, "findings": {"code-execution": [{}]}}
+    entry = {"errors": {"some-rule": "boom"}, "risks": [_risk("high")]}
 
     assert gd.verdict_for(entry, set())[0] == gd.INCOMPLETE
 
 
-def test_the_blocking_set_is_exactly_these_rules():
-    """Literal names on purpose.
+def test_the_severity_vocabulary_is_exactly_these_values():
+    """Literal values on purpose.
 
-    `test_every_blocking_rule_blocks` below parametrizes over the constant
-    it is testing, so it cannot notice the set being emptied or shrunk —
-    it would simply run fewer cases. This test can.
+    The severity-parametrized tests below iterate over the constants they are
+    testing, so they cannot notice the vocabulary itself changing — they would
+    simply run different cases. This test can. Written the same way, and for
+    the same reason, as the blocking-rule test it replaces.
     """
-    assert gd.BLOCKING_RULES == frozenset({
-        "code-execution",
-        "exec-base64",
-        "download-executable",
-        "silent-process-execution",
-        "exfiltrate-sensitive-data",
-        "cmd-overwrite",
-        "steganography",
-    })
+    assert gd.RISK_SEVERITIES == ("low", "medium", "high")
+    assert gd.BLOCKING_SEVERITY == "high"
 
 
-@pytest.mark.parametrize("rule", sorted(gd.BLOCKING_RULES))
-def test_every_blocking_rule_blocks(rule):
-    assert gd.verdict_for({"findings": {rule: [{}]}}, set())[0] == gd.BLOCKED
+@pytest.mark.parametrize("severity", ["high"])
+def test_a_high_severity_risk_blocks(severity):
+    assert gd.verdict_for({"risks": [_risk(severity)]}, set())[0] == gd.BLOCKED
 
 
-def test_a_rule_outside_the_blocking_set_is_advisory():
-    assert gd.verdict_for({"findings": {"shady-links": [{}]}}, set())[0] == gd.ADVISORY
+@pytest.mark.parametrize("severity", ["low", "medium"])
+def test_a_risk_below_the_threshold_is_advisory(severity):
+    assert gd.verdict_for({"risks": [_risk(severity)]}, set())[0] == gd.ADVISORY
+
+
+def test_an_unknown_severity_blocks_rather_than_passing():
+    """The lesson of the gate this replaces.
+
+    The old gate asked "is this rule name in my blocking list?", so when
+    GuardDog 3 renamed all 61 rules the answer was no for every one of them
+    and the gate silently passed everything. A vocabulary this wrapper does
+    not recognise must fail loudly instead.
+    """
+    verdict, rules = gd.verdict_for({"risks": [_risk("catastrophic")]}, set())
+
+    assert verdict == gd.BLOCKED
+    assert rules == ["threat-process-download-exec"]
+
+
+@pytest.mark.parametrize("severity", [None, "", 3, {"level": "high"}])
+def test_a_missing_or_malformed_severity_blocks(severity):
+    assert gd.verdict_for({"risks": [{"threat_rule": "r", "severity": severity}]},
+                          set())[0] == gd.BLOCKED
+
+
+def test_a_risk_with_no_severity_field_at_all_blocks():
+    assert gd.verdict_for({"risks": [{"threat_rule": "r"}]}, set())[0] == gd.BLOCKED
+
+
+def test_the_headline_score_label_does_not_decide_anything():
+    """tqdm scores 7.2/10 `high_risk` for naming api.telegram.org.
+
+    Gating on GuardDog's own label would block two of six ordinary packages
+    measured on 2026-08-11 (tqdm 7.2, pyyaml 8.8), which is the same
+    unusable-noise failure that made the v2 rule list block nothing at all.
+    """
+    entry = {"risks": [_risk("medium"), _risk("low")],
+             "risk_score": {"score": 7.2, "label": "high_risk"}}
+
+    assert gd.verdict_for(entry, set())[0] == gd.ADVISORY
 
 
 def test_an_empty_entry_is_clean():
-    assert gd.verdict_for({"errors": {}, "findings": {}}, set()) == (gd.CLEAN, [])
+    assert gd.verdict_for({"errors": {}, "risks": []}, set()) == (gd.CLEAN, [])
 
 
-def test_a_waiver_clears_a_blocking_rule():
-    entry = {"findings": {"code-execution": [{}]}}
+def test_a_waiver_clears_a_blocking_risk():
+    entry = {"risks": [_risk("high")]}
 
-    assert gd.verdict_for(entry, {"code-execution"})[0] == gd.ADVISORY
+    assert gd.verdict_for(entry, {"threat-process-download-exec"}) == (gd.CLEAN, [])
+
+
+def test_a_waiver_may_name_the_rolled_up_risk_instead_of_the_rule():
+    entry = {"risks": [_risk("high")]}
+
+    assert gd.verdict_for(entry, {"risk.process.spawn"}) == (gd.CLEAN, [])
+
+
+def test_a_waiver_for_one_rule_does_not_clear_a_second_risk():
+    entry = {"risks": [_risk("high"), _risk("high", rule="threat-network-reverse-shell")]}
+
+    verdict, rules = gd.verdict_for(entry, {"threat-process-download-exec"})
+    assert verdict == gd.BLOCKED and rules == ["threat-network-reverse-shell"]
 
 
 def test_a_waiver_clears_an_unrun_rule():
@@ -208,22 +299,16 @@ def test_a_waiver_clears_an_unrun_rule():
     assert gd.verdict_for(entry, {"potentially_compromised_email_domain"})[0] == gd.CLEAN
 
 
-def test_a_waiver_for_one_rule_does_not_clear_another():
-    entry = {"findings": {"code-execution": [{}], "exec-base64": [{}]}}
-
-    verdict, rules = gd.verdict_for(entry, {"code-execution"})
-    assert verdict == gd.BLOCKED and rules == ["exec-base64"]
-
-
 # --- waivers -------------------------------------------------------------
 
 def test_a_waiver_lets_a_blocked_package_through(tmp_path, fake_guarddog, cache_home):
     write_accepted(cache_home, {"evil==1.0": {
-        "rules": ["code-execution"], "reason": "vendored build hook, reviewed",
+        "rules": ["threat-process-download-exec"],
+        "reason": "vendored build hook, reviewed",
         "by": "bgunyel", "at": "2026-08-10"}})
 
     rc, out = run_project(tmp_path / "p", ["evil==1.0"], fake_guarddog(), cache_home,
-                          plan={"evil": CODE_EXEC})
+                          plan={"evil": DOWNLOAD_EXEC})
 
     assert rc == 0
     assert "✗ BLOCKED" not in out
@@ -232,10 +317,10 @@ def test_a_waiver_lets_a_blocked_package_through(tmp_path, fake_guarddog, cache_
 
 def test_a_waiver_does_not_carry_to_a_new_package_version(tmp_path, fake_guarddog, cache_home):
     """A new version is new code; the review does not transfer."""
-    write_accepted(cache_home, {"evil==1.0": {"rules": ["code-execution"]}})
+    write_accepted(cache_home, {"evil==1.0": {"rules": ["threat-process-download-exec"]}})
 
     rc, out = run_project(tmp_path / "p", ["evil==2.0"], fake_guarddog(), cache_home,
-                          plan={"evil": CODE_EXEC})
+                          plan={"evil": DOWNLOAD_EXEC})
 
     assert rc == 1
     assert "BLOCKED" in out
@@ -273,21 +358,22 @@ def test_an_incomplete_scan_is_retried_next_run(tmp_path, fake_guarddog, cache_h
 
 def test_a_complete_scan_is_cached_even_with_findings(tmp_path, fake_guarddog, cache_home):
     bin_dir = fake_guarddog()
-    run_project(tmp_path / "p", ["noisy==1.0"], bin_dir, cache_home, plan={"noisy": SHADY})
+    run_project(tmp_path / "p", ["noisy==1.0"], bin_dir, cache_home, plan={"noisy": TQDM_NOISE})
 
-    _, out = run_project(tmp_path / "p", ["noisy==1.0"], bin_dir, cache_home, plan={"noisy": SHADY})
+    _, out = run_project(tmp_path / "p", ["noisy==1.0"], bin_dir, cache_home, plan={"noisy": TQDM_NOISE})
     assert "[cached] noisy==1.0" in out
-    assert "shady-links (2)" in out, "cached findings must still be reported"
+    assert "threat-network-outbound-shady-links [medium]" in out, \
+        "cached findings must still be reported"
 
 
 def test_the_verdict_is_recomputed_from_the_cache_not_stored(tmp_path, fake_guarddog, cache_home):
     """Accepting a finding must re-decide cached packages without re-scanning."""
     bin_dir = fake_guarddog()
-    rc, _ = run_project(tmp_path / "p", ["evil==1.0"], bin_dir, cache_home, plan={"evil": CODE_EXEC})
+    rc, _ = run_project(tmp_path / "p", ["evil==1.0"], bin_dir, cache_home, plan={"evil": DOWNLOAD_EXEC})
     assert rc == 1
 
-    write_accepted(cache_home, {"evil==1.0": {"rules": ["code-execution"]}})
-    rc, out = run_project(tmp_path / "p", ["evil==1.0"], bin_dir, cache_home, plan={"evil": CODE_EXEC})
+    write_accepted(cache_home, {"evil==1.0": {"rules": ["threat-process-download-exec"]}})
+    rc, out = run_project(tmp_path / "p", ["evil==1.0"], bin_dir, cache_home, plan={"evil": DOWNLOAD_EXEC})
 
     assert rc == 0
     assert "[cached] evil==1.0" in out, "the entry was re-scanned instead of re-judged"
@@ -322,16 +408,28 @@ def test_a_nonzero_exit_becomes_an_error_even_with_valid_json(tmp_path, fake_gua
     assert "guarddog-cached" in entry["errors"]
 
 
-def test_rules_that_matched_nothing_are_not_recorded(tmp_path, fake_guarddog,
-                                                     cache_home, monkeypatch):
-    """GuardDog reports unmatched rules as null, not as an empty list."""
+def test_the_raw_rule_matches_are_not_cached(tmp_path, fake_guarddog,
+                                             cache_home, monkeypatch):
+    """`results` is shape-checked and discarded, not stored.
+
+    It is roughly twice the size of `risks` in a machine-wide cache and
+    nothing reads it now the verdict comes from `risks`. Keeping a field that
+    looks like it feeds the gate but does not is the hazard this rework is
+    about.
+    """
     bin_dir = fake_guarddog()
     plan = tmp_path / "plan.json"
-    plan.write_text(json.dumps({"ok": {"results": {"shady-links": None, "unicode": []}}}))
+    plan.write_text(json.dumps({"ok": {"results": {
+        "capability-network-outbound": [{"location": "a.py:1"}]}}}))
     monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
     monkeypatch.setenv("FAKE_PLAN", str(plan))
 
-    assert gd.scan_package("ok", "1.0")["findings"] == {}
+    entry = gd.scan_package("ok", "1.0")
+
+    assert "findings" not in entry
+    assert "results" not in entry
+    assert entry["risks"] == []
+    assert gd.verdict_for(entry, set())[0] == gd.CLEAN
 
 
 def test_the_ephemeral_scan_path_is_not_cached(tmp_path, fake_guarddog, cache_home, monkeypatch):
@@ -340,14 +438,48 @@ def test_the_ephemeral_scan_path_is_not_cached(tmp_path, fake_guarddog, cache_ho
     assert "path" not in gd.scan_package("ok", "1.0")
 
 
+def test_the_risk_fields_the_verdict_needs_are_kept(tmp_path, fake_guarddog,
+                                                    cache_home, monkeypatch):
+    bin_dir = fake_guarddog()
+    plan = tmp_path / "plan.json"
+    plan.write_text(json.dumps({"evil": DOWNLOAD_EXEC}))
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
+    monkeypatch.setenv("FAKE_PLAN", str(plan))
+
+    risk = gd.scan_package("evil", "1.0")["risks"][0]
+
+    # Literal keys: a test that asks the module which fields it keeps cannot
+    # notice the module dropping one.
+    assert risk["severity"] == "high"
+    assert risk["threat_rule"] == "threat-process-download-exec"
+    assert risk["name"] == "risk.process.spawn"
+    assert risk["threat_location"] == "setup.py:3"
+    assert risk["mitre_tactics"] == ["execution"]
+
+
+def test_the_bulky_source_excerpt_is_not_cached(tmp_path, fake_guarddog,
+                                                cache_home, monkeypatch):
+    """The cache is machine-wide and long-lived; `threat_code` is unbounded."""
+    bin_dir = fake_guarddog()
+    plan = tmp_path / "plan.json"
+    noisy = {"risks": [dict(DOWNLOAD_EXEC["risks"][0], threat_code="x" * 5000)]}
+    plan.write_text(json.dumps({"big": noisy}))
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
+    monkeypatch.setenv("FAKE_PLAN", str(plan))
+
+    assert "threat_code" not in gd.scan_package("big", "1.0")["risks"][0]
+
+
 # --- the report shape we depend on ---------------------------------------
 
 @pytest.mark.parametrize("report", [
-    '{"package": "x", "issues": 0, "results": {}}',                 # errors key gone
-    '{"package": "x", "issues": 0, "errors": {}}',                  # results key gone
-    '{"package": "x", "issues": 0, "errors": [], "results": {}}',   # errors not an object
-    '{"package": "x", "issues": 0, "errors": {}, "results": null}',  # results not an object
-    '{"package": "x", "problems": {}, "matches": {}}',              # renamed wholesale
+    '{"package": "x", "issues": 0, "results": {}, "risks": []}',      # errors key gone
+    '{"package": "x", "issues": 0, "errors": {}, "risks": []}',       # results key gone
+    '{"package": "x", "issues": 0, "errors": [], "results": {}, "risks": []}',   # errors not an object
+    '{"package": "x", "issues": 0, "errors": {}, "results": null, "risks": []}',  # results not an object
+    '{"package": "x", "issues": 0, "errors": {}, "results": {}}',     # risks key gone
+    '{"package": "x", "issues": 0, "errors": {}, "results": {}, "risks": {}}',   # risks not a list
+    '{"package": "x", "problems": {}, "matches": {}}',               # renamed wholesale
 ])
 def test_an_unrecognised_report_shape_is_not_read_as_clean(tmp_path, fake_guarddog,
                                                            cache_home, monkeypatch, report):
@@ -372,6 +504,76 @@ def test_an_unrecognised_report_shape_is_not_read_as_clean(tmp_path, fake_guardd
 
     assert gd.verdict_for(entry, set())[0] == gd.INCOMPLETE
     assert "unrecognised report shape" in str(entry["errors"])
+
+
+def test_a_report_with_no_risks_field_cannot_pass_the_gate(tmp_path, fake_guarddog,
+                                                           cache_home, monkeypatch):
+    """The field the verdict rests on cannot be optional.
+
+    If a later GuardDog drops or renames `risks`, "no risks in the report"
+    must not read as "no risks in the package" — that is precisely how the
+    rule-name gate went inert.
+    """
+    bin_dir = fake_guarddog()
+    plan = tmp_path / "plan.json"
+    plan.write_text(json.dumps({"x": {"drop": ["risks"]}}))
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
+    monkeypatch.setenv("FAKE_PLAN", str(plan))
+
+    entry = gd.scan_package("x", "1.0")
+
+    assert gd.verdict_for(entry, set())[0] == gd.INCOMPLETE
+    assert "unrecognised report shape" in str(entry["errors"])
+
+
+def test_a_failed_scan_keeps_guarddogs_own_explanation(tmp_path, cache_home, monkeypatch):
+    """A failing v3 report has no `results` key at all, and that is not corruption.
+
+    Reported verbatim from GuardDog 3.1.0 on 2026-08-11: the sandbox could not
+    start, so no rule ran and the report's keys were exactly
+    ['package', 'issues', 'errors']. Requiring `results` unconditionally made
+    the wrapper answer "unrecognised report shape" and throw the message below
+    away — the verdict stayed right, the diagnosis did not survive.
+    """
+    report = json.dumps({
+        "package": "x",
+        "issues": 0,
+        "errors": {"download-package": "Sandboxed extraction failed: Fatal Python "
+                                       "error: _Py_HashRandomization_Init: failed to "
+                                       "get random numbers to initialize Python"},
+    })
+    bin_dir = tmp_path / "bin3"
+    bin_dir.mkdir()
+    shim = bin_dir / "guarddog"
+    shim.write_text(f'#!{sys.executable}\n'
+                    f'import sys\n'
+                    f'if len(sys.argv) == 2 and sys.argv[1] == "--version":\n'
+                    f'    print("3.1.0"); sys.exit(0)\n'
+                    f'print({report!r}); sys.exit(0)\n')
+    shim.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
+
+    entry = gd.scan_package("x", "1.0")
+
+    assert gd.verdict_for(entry, set())[0] == gd.INCOMPLETE, "a dead scan passed the gate"
+    assert "unrecognised report shape" not in str(entry["errors"]), \
+        "the wrapper mis-diagnosed a legible failure as a corrupt report"
+    assert "Sandboxed extraction failed" in entry["errors"]["download-package"]
+    assert "_Py_HashRandomization_Init" in entry["errors"]["download-package"]
+
+
+def test_a_failed_scan_reports_the_rule_that_failed_by_name(tmp_path, cache_home, monkeypatch):
+    """`render` must reach the real message; INCOMPLETE alone is not a diagnosis."""
+    entry = {
+        "errors": {"download-package": "Sandboxed extraction failed: ..."},
+        "risks": [],
+    }
+
+    verdict, rules = gd.verdict_for(entry, set())
+    detail = gd.render("x==1.0", entry, verdict, rules)
+
+    assert "download-package" in detail
+    assert "Sandboxed extraction failed" in detail
 
 
 # --- the time budget ------------------------------------------------------
@@ -409,10 +611,10 @@ def test_a_spent_budget_still_evaluates_cached_packages(tmp_path, fake_guarddog,
 def test_a_definite_failure_outranks_an_unfinished_run(tmp_path, fake_guarddog, cache_home):
     """More scanning will not un-block a blocked package."""
     bin_dir = fake_guarddog()
-    run_project(tmp_path / "p", ["evil==1.0"], bin_dir, cache_home, plan={"evil": CODE_EXEC})
+    run_project(tmp_path / "p", ["evil==1.0"], bin_dir, cache_home, plan={"evil": DOWNLOAD_EXEC})
 
     rc, out = run_project(tmp_path / "p", ["evil==1.0", "new==1.0"], bin_dir, cache_home,
-                          plan={"evil": CODE_EXEC}, extra_args=["--time-budget", "0"])
+                          plan={"evil": DOWNLOAD_EXEC}, extra_args=["--time-budget", "0"])
 
     assert rc == 1, "an unfinished run masked a blocked package"
     assert "[skipped] new==1.0" in out
@@ -581,6 +783,10 @@ def test_a_failed_write_leaves_the_previous_cache_intact(cache_home, monkeypatch
     '{"schema": 3, "entries": []}',                                  # entries not a mapping
     '{"guarddog_version": "2.10.0", "entries": {"pkg==1.0": {}}}',   # schema 1
     '{"schema": 2, "entries": {"pkg==1.0@2.10.0": {"output": "x"}}}',  # schema 2: no verdict data
+    # schema 3 stored matched rule *names*, which GuardDog 3 renamed wholesale;
+    # it has no `risks`, so the current verdict would read it as clean.
+    '{"schema": 3, "entries": {"pkg==1.0@2.10.0": '
+    '{"errors": {}, "findings": {"code-execution": [{}]}}}}',
 ])
 def test_an_unusable_or_stale_cache_is_discarded(cache_home, payload):
     path = gd.cache_path()

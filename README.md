@@ -522,38 +522,59 @@ So the wrapper scans with `--output-format=json` and derives its own verdict:
 | verdict | condition | gate |
 | --- | --- | --- |
 | `INCOMPLETE` | `errors` non-empty — some rules did not run | **fails** |
-| `BLOCKED` | a rule in the blocking set matched | **fails** |
-| `advisory` | only non-blocking rules matched | passes, reported |
-| `clean` | nothing matched | passes |
+| `BLOCKED` | a risk at severity `high` | **fails** |
+| `advisory` | only `low`/`medium` risks | passes, reported |
+| `clean` | no risks | passes |
 
-The blocking set is the rules describing behaviour a dependency has no
-business having: `code-execution`, `exec-base64`, `download-executable`,
-`silent-process-execution`, `exfiltrate-sensitive-data`, `cmd-overwrite`,
-`steganography`. Everything else is advisory — on a real dependency tree the
-heuristic rules fire constantly on innocent code (`getattr` reads as
-api-obfuscation, an `api.telegram.org` URL reads as shady-links).
+#### Why severity, and not a list of rule names
+
+The gate used to block on seven named rules. GuardDog 3 renamed all 61 of its
+rules onto a `capability-*`/`threat-*` taxonomy, **none of the seven
+survived**, and the gate quietly stopped blocking anything — it asked "is this
+name in my list?", got "no" for every rule GuardDog now emits, and passed
+everything. Nothing announced it.
+
+So the verdict now rests on `risks[].severity`, a three-value vocabulary
+(`low`, `medium`, `high`) that GuardDog derives itself. A risk's severity is
+its threat rule's severity, downgraded one level when the correlating
+capability sits in another file and two when it sits in another category — so
+`high` means a high-severity rule that either stands alone (install-time, or
+specific enough to be malware-only) or correlates inside a single file.
+
+**Anything the wrapper does not understand blocks rather than passes.** An
+unrecognised severity is treated as blocking, and a scan that completed but
+whose report has no `risks` field is `INCOMPLETE`. A gate that stops
+understanding its input has to fail noisily; the previous one failed silently,
+which is the only outcome that matters here.
+
+GuardDog's own headline `risk_score.label` is reported and deliberately not
+acted on. Measured 2026-08-11: tqdm scores **7.2/10 `high_risk`** for naming
+`api.telegram.org` in a file called `contrib/telegram.py`, and pyyaml **8.8**.
+Gating on the label would block two of six ordinary packages.
 
 **Only complete scans are cached.** A scan that reported `errors` is retried
 next run rather than frozen, so a transient network failure heals itself
 instead of becoming a permanent machine-wide clean bill.
 
-The verdict is computed when an entry is *read*, so changing the blocking set
-or accepting a finding re-decides every cached package without re-scanning.
+The verdict is computed when an entry is *read*, so changing
+`BLOCKING_SEVERITY` or accepting a finding re-decides every cached package
+without re-scanning.
 
 #### Accepting a reviewed finding
 
 `accepted.json`, beside the cache, waives named rules for one package version
-across every project on the machine:
+across every project on the machine. A waiver names either the threat rule or
+the risk it rolls up into — the rule is narrower and usually what you want:
 
 ```json
 {
   "schema": 1,
   "accepted": {
     "somepkg==1.2.3": {
-      "rules": ["code-execution"],
-      "reason": "vendored build hook, reviewed 2026-08-10",
+      "rules": ["threat-runtime-obfuscation-steganography"],
+      "reason": "matches a base64 fixture in the package's own test suite, reviewed 2026-08-11",
       "by": "bgunyel",
-      "at": "2026-08-10"
+      "at": "2026-08-11"
     }
   }
 }

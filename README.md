@@ -489,6 +489,14 @@ projects still rely on; a save re-reads and merges under an exclusive lock,
 so concurrent projects cannot drop each other's results; and the file is
 replaced by rename, so a killed run never leaves a partial cache behind.
 
+Beside the cache, `reports/` keeps GuardDog's full report for each entry,
+in a file named after the same key (`six==1.17.0@3.1.0.json`). A cache entry
+is a summary built for the gate — it records that a rule fired and where,
+but not the text it fired on, which is the one thing needed to review a
+finding before waiving it. `make scan` names the report for any package it
+blocks. The reports are evidence for a human and never an input to the
+verdict, so the directory can be deleted at any time.
+
 Ctrl-C is safe and useful: every completed scan is persisted immediately, so
 a long sweep can be done in short sittings and picks up where it stopped.
 `uv.lock` is never left half-upgraded — the candidate lock is written whole

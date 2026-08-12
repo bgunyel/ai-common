@@ -91,6 +91,37 @@ TQDM_NOISE = {
 }
 BROKEN_RULE = {"errors": {"potentially_compromised_email_domain": "Invalid version: '2013-02-16'"}}
 
+#: The google-genai 2.11.0 finding that made raw reports worth keeping, shaped
+#: as GuardDog 3.1.0 reported it. A cache entry can say only that
+#: `threat-runtime-obfuscation-steganography` fired at line 217 of a test file.
+#: What settles the waiver is in `results`: the matched text is the literal
+#: string `eval(`, occurring inside the word `Retrieval(`. Reviewing that
+#: finding from a cache entry alone is not possible.
+STEGO_FALSE_POSITIVE = {
+    "issues": 15,
+    "results": {
+        "threat-runtime-obfuscation-steganography": [{
+            "code": "types.Tool(\n    retrieval=types.Retrieval(\n"
+                    "        vertex_ai_search=types.VertexAISearch(",
+            "location": "google/genai/tests/models/test_generate_content_tools.py:217",
+            "match": "eval(",
+            "message": "Detects steganography decode followed by code execution",
+        }],
+    },
+    "risks": [{
+        "name": "risk.runtime.obfuscation",
+        "category": "runtime",
+        "severity": "high",
+        "mitre_tactics": ["defense-evasion"],
+        "threat_rule": "threat-runtime-obfuscation-steganography",
+        "threat_description": "Detects steganography decode followed by code execution",
+        "threat_location": "google/genai/tests/models/test_generate_content_tools.py:217",
+        "file_path": "google/genai/tests/models/test_generate_content_tools.py",
+        "threat_code": "retrieval=types.Retrieval(",
+    }],
+    "risk_score": {"score": 4.9, "label": "low", "findings_count": 9},
+}
+
 
 @pytest.fixture
 def fake_guarddog(tmp_path):
@@ -139,6 +170,15 @@ def run_project(project_dir: Path, packages, bin_dir: Path, cache_home: Path,
 
 def read_cache(cache_home: Path) -> dict:
     return json.loads((cache_home / "guarddog-cached" / "cache.json").read_text())
+
+
+def reports_of(cache_home: Path) -> Path:
+    """The reports directory, spelled out rather than asked of the module."""
+    return cache_home / "guarddog-cached" / "reports"
+
+
+def read_report(cache_home: Path, filename: str) -> dict:
+    return json.loads((reports_of(cache_home) / filename).read_text())
 
 
 def write_accepted(cache_home: Path, accepted: dict) -> None:
@@ -364,6 +404,134 @@ def test_a_complete_scan_is_cached_even_with_findings(tmp_path, fake_guarddog, c
     assert "[cached] noisy==1.0" in out
     assert "threat-network-outbound-shady-links [medium]" in out, \
         "cached findings must still be reported"
+
+
+# --- the raw report kept beside the cache --------------------------------
+
+def test_the_report_keeps_the_evidence_the_cache_entry_drops(tmp_path, fake_guarddog,
+                                                              cache_home):
+    """The cache says a rule fired; only the report says what it fired on.
+
+    This is the whole reason the reports exist. `results` and `threat_code`
+    are trimmed from the entry on size grounds, and they are exactly what a
+    human needs to tell a rule defect from a real finding.
+    """
+    run_project(tmp_path / "p", ["genai==2.11.0"], fake_guarddog(), cache_home,
+                plan={"genai": STEGO_FALSE_POSITIVE})
+
+    report = read_report(cache_home, "genai==2.11.0@2.10.0.json")
+    match = report["results"]["threat-runtime-obfuscation-steganography"][0]
+    assert match["match"] == "eval("
+    assert "Retrieval(" in match["code"]
+    assert report["risks"][0]["threat_code"] == "retrieval=types.Retrieval("
+
+    entry = read_cache(cache_home)["entries"]["genai==2.11.0@2.10.0"]
+    assert "results" not in entry, "the entry is meant to stay a summary"
+    assert "threat_code" not in entry["risks"][0]
+
+
+def test_the_report_is_named_after_the_cache_key(tmp_path, fake_guarddog, cache_home):
+    """A human reading the cache must be able to find the evidence for a row."""
+    run_project(tmp_path / "p", ["ok==1.0"], fake_guarddog(version="3.1.0"), cache_home)
+
+    assert "ok==1.0@3.1.0" in read_cache(cache_home)["entries"]
+    assert (reports_of(cache_home) / "ok==1.0@3.1.0.json").is_file()
+
+
+def test_the_report_records_what_was_asked_for(tmp_path, fake_guarddog, cache_home):
+    run_project(tmp_path / "p", ["ok==1.0"], fake_guarddog(), cache_home)
+
+    provenance = read_report(cache_home, "ok==1.0@2.10.0.json")["_guarddog_cached"]
+    assert provenance["package"] == "ok"
+    assert provenance["version"] == "1.0"
+    assert provenance["guarddog_version"] == "2.10.0"
+    assert provenance["cache_key"] == "ok==1.0@2.10.0"
+
+
+def test_the_report_and_the_entry_agree_on_when_the_scan_happened(tmp_path, fake_guarddog,
+                                                                  cache_home, monkeypatch):
+    """One reading of the clock, so the pair cannot drift apart.
+
+    The clock is replaced with one that never returns the same value twice.
+    Against the real clock both readings land in the same second and the
+    assertion would hold however many times the code looked.
+    """
+    monkeypatch.setenv("PATH", f"{fake_guarddog()}:/usr/bin:/bin")
+
+    ticks = iter(["2026-08-12T09:00:00+00:00", "2026-08-12T09:00:01+00:00"])
+
+    class _Reading:
+        def __init__(self, value):
+            self._value = value
+
+        def isoformat(self, timespec="seconds"):
+            return self._value
+
+    class _Clock:
+        @staticmethod
+        def now(tz=None):
+            return _Reading(next(ticks))
+
+    monkeypatch.setattr(gd, "datetime", _Clock)
+
+    entry = gd.scan_package("ok", "1.0", "2.10.0")
+
+    report = read_report(cache_home, "ok==1.0@2.10.0.json")
+    assert report["_guarddog_cached"]["scanned_at"] == entry["scanned_at"]
+
+
+def test_an_incomplete_package_is_not_sent_to_a_report_that_is_not_there(tmp_path,
+                                                                        fake_guarddog,
+                                                                        cache_home):
+    """It has no report, and naming the path anyway sends a reader nowhere."""
+    rc, out = run_project(tmp_path / "p", ["broken==1.0"], fake_guarddog(), cache_home,
+                          plan={"broken": BROKEN_RULE})
+
+    assert rc == 1
+    assert "INCOMPLETE" in out
+    assert "matched code:" not in out
+
+
+def test_an_incomplete_scan_leaves_no_report(tmp_path, fake_guarddog, cache_home):
+    """Report and entry appear together, so neither can be stale beside the other."""
+    run_project(tmp_path / "p", ["broken==1.0"], fake_guarddog(), cache_home,
+                plan={"broken": BROKEN_RULE})
+
+    assert read_cache(cache_home)["entries"] == {}
+    assert list(reports_of(cache_home).glob("*.json")) == []
+
+
+def test_a_version_cannot_escape_the_reports_directory(tmp_path, fake_guarddog, cache_home):
+    """The filename comes from parsed input, which constrains names but not versions."""
+    run_project(tmp_path / "p", ["evil==1.0/../../pwned"], fake_guarddog(), cache_home)
+
+    assert not (cache_home / "pwned@2.10.0.json").exists()
+    assert not (cache_home / "guarddog-cached" / "pwned@2.10.0.json").exists()
+    written = list(reports_of(cache_home).glob("*.json"))
+    assert len(written) == 1
+    assert written[0].parent == reports_of(cache_home)
+
+
+def test_two_versions_that_sanitise_alike_keep_separate_reports(tmp_path, fake_guarddog,
+                                                                cache_home):
+    """Replacing unsafe characters is many-to-one; the filenames must not be.
+
+    `1.0/x` and `1.0:x` are different packages. If both land on one report,
+    the evidence shown for one is the evidence gathered for the other.
+    """
+    run_project(tmp_path / "p", ["evil==1.0/x", "evil==1.0:x"], fake_guarddog(), cache_home)
+
+    assert len(list(reports_of(cache_home).glob("*.json"))) == 2
+
+
+def test_a_blocked_package_is_told_where_its_matched_code_is(tmp_path, fake_guarddog,
+                                                             cache_home):
+    """A waiver decided without reading the match is the rubber stamp to avoid."""
+    rc, out = run_project(tmp_path / "p", ["genai==2.11.0"], fake_guarddog(), cache_home,
+                          plan={"genai": STEGO_FALSE_POSITIVE})
+
+    assert rc == 1
+    assert "genai==2.11.0@2.10.0.json" in out
 
 
 def test_the_verdict_is_recomputed_from_the_cache_not_stored(tmp_path, fake_guarddog, cache_home):

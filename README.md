@@ -96,6 +96,11 @@ unique_sources = asyncio.run(web_search.search(
 Everything below is importable directly from the top-level `ai_common` package,
 except the graph components, which live in `ai_common.components`.
 
+These names resolve lazily (PEP 562): `import ai_common` costs nothing, and each
+name pulls only the submodule that defines it, on first access. Cost is therefore
+per *name*, not per package — `from ai_common import ModelNames` stays cheap,
+while any statement mentioning `get_llm` loads the provider SDKs.
+
 | Symbol | Kind | Purpose |
 | --- | --- | --- |
 | `get_llm` | function | Build a LangChain chat model for any supported provider |
@@ -461,7 +466,131 @@ coverage:
 | Target | What it does |
 | --- | --- |
 | `make audit` | Tier 1 — scan the committed `uv.lock` against OSV/GHSA advisories (fast, read-only). Requires [`osv-scanner`](https://github.com/google/osv-scanner). |
-| `make scan` | Tier 2 — [GuardDog](https://github.com/DataDog/guarddog) static analysis on every locked dep, with a per-package cache. |
+| `make scan` | Tier 2 — [GuardDog](https://github.com/DataDog/guarddog) static analysis on every locked dep, via the `guarddog-cached` console script shipped by this package. |
 | `make verify` | Combined tier-1 + tier-2 sweep against the committed lock (release gate). |
 | `make upgrade-safe` | Resolve a candidate upgrade, run **both** scanners on it, and revert `uv.lock` if either fires; otherwise sync. |
 | `make upgrade` | Blind upgrade with only a 7-day quarantine (`--exclude-newer`); prefer `upgrade-safe`. |
+
+#### The shared GuardDog cache
+
+`guarddog-cached` is a console script shipped by this package, so a project
+gets the tier-2 wrapper by depending on ai-common rather than by copying a
+script into its own `scripts/`.
+
+A scan result is a fact about PyPI — package X at version Y, judged by
+GuardDog Z — not a fact about any one project, so results are cached in
+`$XDG_CACHE_HOME/guarddog-cached/cache.json` (default `~/.cache/…`) and
+**every project on the machine reuses every other project's scans**.
+
+Because the cache is shared, it is written defensively: entries are keyed on
+all three of (name, version, guarddog_version), so upgrading GuardDog
+re-scans under the new version instead of invalidating results other
+projects still rely on; a save re-reads and merges under an exclusive lock,
+so concurrent projects cannot drop each other's results; and the file is
+replaced by rename, so a killed run never leaves a partial cache behind.
+
+Beside the cache, `reports/` keeps GuardDog's full report for each entry,
+in a file named after the same key (`six==1.17.0@3.1.0.json`). A cache entry
+is a summary built for the gate — it records that a rule fired and where,
+but not the text it fired on, which is the one thing needed to review a
+finding before waiving it. `make scan` names the report for any package it
+blocks. The reports are evidence for a human and never an input to the
+verdict, so the directory can be deleted at any time.
+
+Ctrl-C is safe and useful: every completed scan is persisted immediately, so
+a long sweep can be done in short sittings and picks up where it stopped.
+`uv.lock` is never left half-upgraded — the candidate lock is written whole
+before scanning begins, and an interrupted `upgrade-safe` restores the
+original.
+
+#### Scanning on a time budget
+
+A first sweep on a new GuardDog version re-scans everything and can take an
+hour. To do it in slices:
+
+```sh
+make upgrade-safe GUARDDOG_BUDGET=600     # 10 minutes, then stop
+```
+
+Scanning stops starting new packages once the budget is spent and exits 75,
+which reverts `uv.lock` exactly as an interrupt would. Completed scans stay
+cached, so repeated budgeted runs converge on a full sweep and only a run
+that finishes inside its budget can adopt an upgrade. The budget bounds when
+a scan *starts*, not when it ends, so a slow package may overshoot by one.
+
+#### Why the gate does not use GuardDog's exit code
+
+`guarddog pypi scan` exits 0 whether it found nothing, found three malicious
+indicators, or never managed to download the package. Nonzero means only that
+GuardDog was *called* wrong. Gating on it would let a scan that never ran
+count as a pass.
+
+So the wrapper scans with `--output-format=json` and derives its own verdict:
+
+| verdict | condition | gate |
+| --- | --- | --- |
+| `INCOMPLETE` | `errors` non-empty — some rules did not run | **fails** |
+| `BLOCKED` | a risk at severity `high` | **fails** |
+| `advisory` | only `low`/`medium` risks | passes, reported |
+| `clean` | no risks | passes |
+
+#### Why severity, and not a list of rule names
+
+The gate used to block on seven named rules. GuardDog 3 renamed all 61 of its
+rules onto a `capability-*`/`threat-*` taxonomy, **none of the seven
+survived**, and the gate quietly stopped blocking anything — it asked "is this
+name in my list?", got "no" for every rule GuardDog now emits, and passed
+everything. Nothing announced it.
+
+So the verdict now rests on `risks[].severity`, a three-value vocabulary
+(`low`, `medium`, `high`) that GuardDog derives itself. A risk's severity is
+its threat rule's severity, downgraded one level when the correlating
+capability sits in another file and two when it sits in another category — so
+`high` means a high-severity rule that either stands alone (install-time, or
+specific enough to be malware-only) or correlates inside a single file.
+
+**Anything the wrapper does not understand blocks rather than passes.** An
+unrecognised severity is treated as blocking, and a scan that completed but
+whose report has no `risks` field is `INCOMPLETE`. A gate that stops
+understanding its input has to fail noisily; the previous one failed silently,
+which is the only outcome that matters here.
+
+GuardDog's own headline `risk_score.label` is reported and deliberately not
+acted on. Measured 2026-08-11: tqdm scores **7.2/10 `high_risk`** for naming
+`api.telegram.org` in a file called `contrib/telegram.py`, and pyyaml **8.8**.
+Gating on the label would block two of six ordinary packages.
+
+**Only complete scans are cached.** A scan that reported `errors` is retried
+next run rather than frozen, so a transient network failure heals itself
+instead of becoming a permanent machine-wide clean bill.
+
+The verdict is computed when an entry is *read*, so changing
+`BLOCKING_SEVERITY` or accepting a finding re-decides every cached package
+without re-scanning.
+
+#### Accepting a reviewed finding
+
+`accepted.json`, beside the cache, waives named rules for one package version
+across every project on the machine. A waiver names either the threat rule or
+the risk it rolls up into — the rule is narrower and usually what you want:
+
+```json
+{
+  "schema": 1,
+  "accepted": {
+    "somepkg==1.2.3": {
+      "rules": ["threat-runtime-obfuscation-steganography"],
+      "reason": "matches a base64 fixture in the package's own test suite, reviewed 2026-08-11",
+      "by": "bgunyel",
+      "at": "2026-08-11"
+    }
+  }
+}
+```
+
+Waivers are keyed on (name, version) without the GuardDog version — the
+review was of the package's code, which a GuardDog upgrade does not change.
+A *new* package version is never covered by an old waiver. Because the file
+is machine-wide rather than per-repository, a waiver does not pass through
+code review; the `reason`/`by`/`at` fields are there so the decision is at
+least auditable after the fact.

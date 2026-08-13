@@ -26,10 +26,16 @@ import sys, json, os, time
 if len(sys.argv) == 2 and sys.argv[1] == "--version":
     print("{version}"); sys.exit(0)
 name = sys.argv[3]
+version = sys.argv[5]
 plan = {{}}
 if os.environ.get("FAKE_PLAN"):
     plan = json.load(open(os.environ["FAKE_PLAN"]))
-spec = plan.get(name, {{}})
+# A plan may key a package by name alone, or by "name==version" when a test
+# needs the two version spellings of one release to behave differently.
+spec = plan.get(name + "==" + version, plan.get(name, {{}}))
+if os.environ.get("FAKE_CALLS"):
+    with open(os.environ["FAKE_CALLS"], "a") as fh:
+        fh.write(name + "==" + version + "\\n")
 time.sleep({delay})
 if spec.get("garbage"):
     print("this is not json"); sys.exit(spec.get("exit", 0))
@@ -153,7 +159,8 @@ def run_project(project_dir: Path, packages, bin_dir: Path, cache_home: Path,
     (project_dir / "req.txt").write_text("".join(f"{p}\n" for p in packages))
 
     env = {"PATH": f"{bin_dir}:/usr/bin:/bin", "XDG_CACHE_HOME": str(cache_home),
-           "HOME": str(project_dir)}
+           "HOME": str(project_dir),
+           "FAKE_CALLS": str(project_dir / "calls.txt")}
     if plan is not None:
         plan_file = project_dir / "plan.json"
         plan_file.write_text(json.dumps(plan))
@@ -179,6 +186,12 @@ def reports_of(cache_home: Path) -> Path:
 
 def read_report(cache_home: Path, filename: str) -> dict:
     return json.loads((reports_of(cache_home) / filename).read_text())
+
+
+def calls_made(project_dir: Path) -> list[str]:
+    """Every `name==version` the fake guarddog was asked to scan, in order."""
+    path = project_dir / "calls.txt"
+    return path.read_text().splitlines() if path.exists() else []
 
 
 def write_accepted(cache_home: Path, accepted: dict) -> None:
@@ -978,3 +991,148 @@ def test_no_legacy_file_is_a_no_op(tmp_path, cache_home, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     assert gd.discard_legacy_cache() is False
+
+
+# --- the two spellings of one release ------------------------------------
+#
+# `uv` takes a version from the wheel filename, PyPI keys its release index
+# on the PEP 440 canonical form, and for four of cuda-toolkit's 39 releases
+# those disagree: the file is `cuda_toolkit-13.0.3.0-py2.py3-none-any.whl`
+# and the release is `13.0.3`. A lock saying `13.0.3.0` therefore asked
+# GuardDog for a version that does not exist, and an unscannable package is
+# an INCOMPLETE that no adjudication can clear.
+
+#: What GuardDog 3.1.0 really reported for `cuda-toolkit==13.0.3.0`,
+#: recorded 2026-08-13.
+NO_SUCH_VERSION = {"errors": {
+    "download-package": "Version 13.0.3.0 for package cuda-toolkit doesn't exist."}}
+
+
+def test_a_version_pypi_spells_differently_is_found_on_a_second_attempt(
+        tmp_path, fake_guarddog, cache_home):
+    project = tmp_path / "p"
+    rc, out = run_project(project, ["cuda-toolkit==13.0.3.0"], fake_guarddog(), cache_home,
+                          plan={"cuda-toolkit==13.0.3.0": NO_SUCH_VERSION,
+                                "cuda-toolkit==13.0.3": {}})
+
+    assert rc == 0
+    assert "INCOMPLETE 0" in out
+    assert calls_made(project) == ["cuda-toolkit==13.0.3.0", "cuda-toolkit==13.0.3"]
+
+
+def test_the_substitution_is_announced_rather_than_made_silently(
+        tmp_path, fake_guarddog, cache_home):
+    _, out = run_project(tmp_path / "p", ["cuda-toolkit==13.0.3.0"], fake_guarddog(),
+                         cache_home, plan={"cuda-toolkit==13.0.3.0": NO_SUCH_VERSION,
+                                           "cuda-toolkit==13.0.3": {}})
+
+    assert "13.0.3" in out
+
+
+def test_the_lock_spelling_stays_the_cache_key(tmp_path, fake_guarddog, cache_home):
+    """Keyed on what the lock says, so the next sweep's parse hits the cache."""
+    run_project(tmp_path / "p", ["cuda-toolkit==13.0.3.0"], fake_guarddog(), cache_home,
+                plan={"cuda-toolkit==13.0.3.0": NO_SUCH_VERSION,
+                      "cuda-toolkit==13.0.3": {}})
+
+    assert set(read_cache(cache_home)["entries"]) == {"cuda-toolkit==13.0.3.0@2.10.0"}
+
+
+def test_the_report_is_filed_under_the_lock_spelling_too(tmp_path, fake_guarddog, cache_home):
+    """A BLOCKED package is pointed at `report_path(name, version)`; it must exist."""
+    run_project(tmp_path / "p", ["cuda-toolkit==13.0.3.0"], fake_guarddog(), cache_home,
+                plan={"cuda-toolkit==13.0.3.0": NO_SUCH_VERSION,
+                      "cuda-toolkit==13.0.3": {}})
+
+    assert [p.name for p in reports_of(cache_home).iterdir()] == [
+        "cuda-toolkit==13.0.3.0@2.10.0.json"]
+
+
+def test_the_entry_records_which_version_was_actually_scanned(
+        tmp_path, fake_guarddog, cache_home):
+    run_project(tmp_path / "p", ["cuda-toolkit==13.0.3.0"], fake_guarddog(), cache_home,
+                plan={"cuda-toolkit==13.0.3.0": NO_SUCH_VERSION,
+                      "cuda-toolkit==13.0.3": {}})
+
+    entry = read_cache(cache_home)["entries"]["cuda-toolkit==13.0.3.0@2.10.0"]
+    assert entry["scanned_version"] == "13.0.3"
+
+
+def test_the_report_says_which_release_it_describes(tmp_path, fake_guarddog, cache_home):
+    """Otherwise the stored report claims to be of a release PyPI does not have."""
+    run_project(tmp_path / "p", ["cuda-toolkit==13.0.3.0"], fake_guarddog(), cache_home,
+                plan={"cuda-toolkit==13.0.3.0": NO_SUCH_VERSION,
+                      "cuda-toolkit==13.0.3": {}})
+
+    report = read_report(cache_home, "cuda-toolkit==13.0.3.0@2.10.0.json")
+    provenance = report["_guarddog_cached"]
+    assert provenance["version"] == "13.0.3.0"
+    assert provenance["scanned_version"] == "13.0.3"
+
+
+def test_an_ordinary_scan_is_never_retried(tmp_path, fake_guarddog, cache_home):
+    """`1.0` canonicalises to `1`, so only the success suppresses a second call."""
+    project = tmp_path / "p"
+    run_project(project, ["ok==1.0"], fake_guarddog(), cache_home)
+
+    assert calls_made(project) == ["ok==1.0"]
+
+
+def test_a_failure_that_is_not_about_spelling_is_not_laundered_into_a_pass(
+        tmp_path, fake_guarddog, cache_home):
+    """`2.114.0` is a real release key; `2.114` is not, so the retry finds nothing."""
+    project = tmp_path / "p"
+    rc, out = run_project(project, ["docling==2.114.0"], fake_guarddog(), cache_home,
+                          plan={"docling==2.114.0": {
+                                    "errors": {"download-package": "connection reset"}},
+                                "docling==2.114": {
+                                    "errors": {"download-package": "no such version"}}})
+
+    assert rc == 1
+    assert "INCOMPLETE 1" in out
+    assert calls_made(project) == ["docling==2.114.0", "docling==2.114"]
+
+
+def test_a_laundered_scan_is_not_cached(tmp_path, fake_guarddog, cache_home):
+    run_project(tmp_path / "p", ["docling==2.114.0"], fake_guarddog(), cache_home,
+                plan={"docling==2.114.0": {"errors": {"download-package": "connection reset"}},
+                      "docling==2.114": {"errors": {"download-package": "no such version"}}})
+
+    assert read_cache(cache_home)["entries"] == {}
+
+
+def test_the_original_error_survives_a_failed_retry(tmp_path, fake_guarddog, cache_home):
+    """The retry's message would name a version the user never asked for."""
+    _, out = run_project(tmp_path / "p", ["docling==2.114.0"], fake_guarddog(), cache_home,
+                         plan={"docling==2.114.0": {
+                                   "errors": {"download-package": "connection reset"}},
+                               "docling==2.114": {
+                                   "errors": {"download-package": "no such version"}}})
+
+    assert "connection reset" in out
+
+
+def test_a_waiver_is_keyed_on_the_version_the_lock_shows(tmp_path, fake_guarddog, cache_home):
+    """A reviewer waives what they can see in `uv.lock`, not PyPI's spelling."""
+    write_accepted(cache_home, {"cuda-toolkit==13.0.3.0": {
+        "rules": ["threat-process-download-exec"],
+        "reason": "reviewed", "by": "bgunyel", "at": "2026-08-13"}})
+
+    rc, out = run_project(tmp_path / "p", ["cuda-toolkit==13.0.3.0"], fake_guarddog(),
+                          cache_home, plan={"cuda-toolkit==13.0.3.0": NO_SUCH_VERSION,
+                                            "cuda-toolkit==13.0.3": DOWNLOAD_EXEC})
+
+    assert rc == 0
+    assert "BLOCKED 0" in out
+
+
+def test_a_waiver_keyed_on_pypis_spelling_does_not_apply(tmp_path, fake_guarddog, cache_home):
+    write_accepted(cache_home, {"cuda-toolkit==13.0.3": {
+        "rules": ["threat-process-download-exec"]}})
+
+    rc, out = run_project(tmp_path / "p", ["cuda-toolkit==13.0.3.0"], fake_guarddog(),
+                          cache_home, plan={"cuda-toolkit==13.0.3.0": NO_SUCH_VERSION,
+                                            "cuda-toolkit==13.0.3": DOWNLOAD_EXEC})
+
+    assert rc == 1
+    assert "BLOCKED" in out

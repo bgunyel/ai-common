@@ -114,6 +114,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
+from packaging.utils import canonicalize_version
+
 try:
     import fcntl
 except ImportError:  # pragma: no cover - Windows has no flock
@@ -346,7 +348,7 @@ REPORT_PROVENANCE_KEY = "_guarddog_cached"
 
 
 def save_report(name: str, version: str, guarddog_version: str, report: dict,
-                scanned_at: str) -> Path:
+                scanned_at: str, scanned_version: str | None = None) -> Path:
     """Keep GuardDog's full report beside the cache entry that summarises it.
 
     Written for completed scans only, so that the presence of a report and
@@ -369,6 +371,11 @@ def save_report(name: str, version: str, guarddog_version: str, report: dict,
         # the scan they both describe happened.
         "scanned_at": scanned_at,
     }
+    if scanned_version is not None:
+        # Filed under the version the lock asked for, but the bytes GuardDog
+        # judged were fetched under another string. Say so here, or the
+        # report silently claims to describe a release PyPI does not have.
+        stored[REPORT_PROVENANCE_KEY]["scanned_version"] = scanned_version
     try:
         _write_json_atomically(path, stored)
     except OSError as exc:
@@ -431,18 +438,34 @@ def _unreadable(detail: str) -> dict:
     }
 
 
-def scan_package(name: str, version: str, guarddog_version: str | None = None) -> dict:
-    """Scan one package and return the facts, never a judgement.
+def _pypi_release_key(version: str) -> str | None:
+    """PyPI's own spelling of `version`, when it differs from the one given.
 
-    A crash, a timeout or unparseable output all become an `errors` entry
-    rather than an empty-and-therefore-clean result: the caller must not be
-    able to mistake "the tool broke" for "the package is fine".
+    `uv` reads a version out of the wheel *filename*; PyPI keys its release
+    index on the PEP 440 canonical form. Those usually agree and
+    occasionally do not. NVIDIA ships
+    `cuda_toolkit-13.0.3.0-py2.py3-none-any.whl` under a release PyPI calls
+    `13.0.3`, so a lock line saying `13.0.3.0` asks GuardDog for a version
+    that, to the JSON API, does not exist — and an unscannable package is an
+    INCOMPLETE that never passes. Four of that project's 39 releases are
+    spelled this way, so it is a recurring shape and not one bad upload.
 
-    Given `guarddog_version`, a completed scan also has its full report
-    stored beside the cache — the trimming below is lossy by design, and the
-    part it drops is the part a human needs to review a finding. The
-    argument is optional so that a caller exercising the trimming need not
-    invent a version; the driver always passes one.
+    Returns None when the canonical form is the string we already have,
+    which is the overwhelmingly common case, and also when `version` is not
+    a valid PEP 440 version at all — `canonicalize_version` hands those back
+    unchanged, so they produce no second attempt.
+    """
+    canonical = canonicalize_version(version)
+    return canonical if canonical != version else None
+
+
+def _scan_once(name: str, version: str) -> tuple[dict, dict | None]:
+    """Run one `guarddog pypi scan` and reduce it to (entry, raw report).
+
+    The raw report is None when the output could not be read as one, which
+    lets the caller tell "nothing worth storing" from "a report that has
+    errors in it". Storing it is deliberately not done here: which version
+    string a report is filed under is decided one level up.
     """
     proc = subprocess.run(
         ["guarddog", "pypi", "scan", name, "--version", version, "--output-format=json"],
@@ -457,14 +480,14 @@ def scan_package(name: str, version: str, guarddog_version: str | None = None) -
             "errors": {"guarddog-cached": f"exit {proc.returncode}, unparseable output: "
                                           f"{detail[-1] if detail else '(no output)'}"},
             "risks": [],
-        }
+        }, None
 
     if not isinstance(report, dict):
         return {"issues": 0, "errors": {"guarddog-cached": "output was not an object"},
-                "risks": []}
+                "risks": []}, None
 
     if not isinstance(report.get(ERRORS_KEY), dict):
-        return _unreadable(f"{ERRORS_KEY!r} is missing or not an object")
+        return _unreadable(f"{ERRORS_KEY!r} is missing or not an object"), None
 
     errors = dict(report[ERRORS_KEY])
 
@@ -480,7 +503,7 @@ def scan_package(name: str, version: str, guarddog_version: str | None = None) -
             return _unreadable(
                 f"{RESULTS_KEY!r} is missing or not an object on a scan that "
                 f"reported no errors"
-            )
+            ), None
         results = {}
 
     # The verdict rests on `risks`, so its absence from a scan that claims to
@@ -492,19 +515,13 @@ def scan_package(name: str, version: str, guarddog_version: str | None = None) -
             return _unreadable(
                 f"{RISKS_KEY!r} is missing or not a list on a scan that "
                 f"reported no errors"
-            )
+            ), None
         risks = []
 
     if proc.returncode != 0:
         errors.setdefault("guarddog-cached", f"guarddog exited {proc.returncode}")
 
     scanned_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-    # Only a completed scan is kept, matching the rule for the cache: an
-    # entry and its report appear and disappear together, so a stale report
-    # can never sit beside a package that is currently failing to scan.
-    if guarddog_version is not None and not errors:
-        save_report(name, version, guarddog_version, report, scanned_at)
 
     return {
         "issues": report.get("issues", 0),
@@ -524,7 +541,61 @@ def scan_package(name: str, version: str, guarddog_version: str | None = None) -
             for risk in risks if isinstance(risk, dict)
         ],
         "risk_score": _kept_score(report.get("risk_score")),
-    }
+    }, report
+
+
+def scan_package(name: str, version: str, guarddog_version: str | None = None) -> dict:
+    """Scan one package and return the facts, never a judgement.
+
+    A crash, a timeout or unparseable output all become an `errors` entry
+    rather than an empty-and-therefore-clean result: the caller must not be
+    able to mistake "the tool broke" for "the package is fine".
+
+    Given `guarddog_version`, a completed scan also has its full report
+    stored beside the cache — the trimming in `_scan_once` is lossy by
+    design, and the part it drops is the part a human needs to review a
+    finding. The argument is optional so that a caller exercising the
+    trimming need not invent a version; the driver always passes one.
+    """
+    entry, report = _scan_once(name, version)
+
+    # A failed scan can mean only that we asked for a version string PyPI
+    # does not use as a release key, so a second attempt against the
+    # canonical form is worth one round trip.
+    #
+    # This cannot smuggle in a different release. PyPI refuses two releases
+    # whose versions compare equal under PEP 440, so the canonical form
+    # resolves either to this same release or to nothing at all: a genuine
+    # `2.114.0` that failed for some other reason retries as `2.114`, finds
+    # no such release, and keeps the error it already had. The retry is
+    # accepted only when it completes, so "not checked" still never becomes
+    # a pass.
+    scanned_version = None
+    if entry["errors"]:
+        alternative = _pypi_release_key(version)
+        if alternative is not None:
+            retried, retried_report = _scan_once(name, alternative)
+            if not retried["errors"]:
+                entry, report = retried, retried_report
+                scanned_version = alternative
+                print(f"  · PyPI has this release as {alternative}; scanned that",
+                      flush=True)
+
+    if scanned_version is not None:
+        # The lock's spelling stays the identity — cache key, report filename
+        # and waiver key all keep `version`, so a reviewer waives the string
+        # they can actually see in `uv.lock`. This field is the only record
+        # in the entry that the two differ.
+        entry["scanned_version"] = scanned_version
+
+    # Only a completed scan is kept, matching the rule for the cache: an
+    # entry and its report appear and disappear together, so a stale report
+    # can never sit beside a package that is currently failing to scan.
+    if guarddog_version is not None and not entry["errors"] and report is not None:
+        save_report(name, version, guarddog_version, report, entry["scanned_at"],
+                    scanned_version)
+
+    return entry
 
 
 def _kept_score(score: object) -> dict:

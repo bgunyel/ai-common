@@ -18,6 +18,10 @@ dependencies = [
     "langchain-openrouter>=0.2.6",
     "ollama>=0.6.0",
     "openai>=2.6.0",
+    # PEP 440 version normalisation, so the GuardDog wrapper can tell that a
+    # lock's `13.0.3.0` and PyPI's `13.0.3` are one release. Already in the
+    # graph transitively; declared because the wrapper imports it directly.
+    "packaging>=25.0",
     "pillow>=11.3.0",
     "tavily-python>=0.7.12",
     "tqdm>=4.67.1",

@@ -36,6 +36,14 @@ guarddog-review = "ai_common.security.guarddog_review:cli"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.uv]
+# Pin the resolver, not only its output. uv writes uv.lock, and uv.lock is the
+# artifact both gate tiers read — osv-scanner parses it, and the GuardDog sweep
+# scans whatever `uv export` flattens out of it. uv's 0.x scheme puts breaking
+# changes at minor bumps, so patch releases flow freely while 0.13 has to be a
+# deliberate decision rather than an arrival.
+required-version = ">=0.12,<0.13"
+
 [dependency-groups]
 test = ["pytest>=9.0.3"]
 lint = ["ruff<1.0,>=0.5"]

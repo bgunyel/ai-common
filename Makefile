@@ -57,6 +57,20 @@ audit:
 # in tier 1 and scan a different one in tier 2. Verified 2026-08-11: adding a
 # dependency to pyproject.toml and running the un-frozen export rewrote
 # uv.lock and pulled the new package into the scanned set.
+#
+# `uv run --frozen --no-sync` is load-bearing for the same reason, one layer
+# over: `uv run` syncs the project environment before executing, and that sync
+# is INEXACT by default — `--exact` is the opt-in — so it installs and never
+# removes. In `upgrade-safe` it runs while uv.lock is the candidate, so a
+# candidate that goes on to be rejected still leaves its packages installed:
+# the EXIT trap restores the lock, and the `uv sync` that would repair the
+# environment sits on the success path only. Demonstrated 2026-08-16 by
+# reproducing the sequence in a scratch project, and observed in the wild in
+# clause-and-effect as `olefile` and `python-oxmsg` — installed in .venv,
+# present in no commit's uv.lock. The install also precedes the scan, so a
+# blocking finding cannot keep the package out of the environment.
+# `--no-sync` prevents it rather than undoing it; `--frozen` stops `uv run`
+# rewriting the lock it was handed.
 scan:
 	@command -v guarddog >/dev/null 2>&1 || { \
 		echo "guarddog not installed. Install via 'uv tool install guarddog', 'pip install guarddog', or 'docker pull ghcr.io/datadog/guarddog'"; \
@@ -67,7 +81,7 @@ scan:
 	trap 'exit 143' TERM; \
 	mkdir -p $(dir $(FLAT_REQUIREMENTS_FILE)); \
 	uv export --frozen --no-hashes --all-groups -o $(FLAT_REQUIREMENTS_FILE) >/dev/null; \
-	uv run guarddog-cached $(GUARDDOG_BUDGET_FLAG) $(FLAT_REQUIREMENTS_FILE); \
+	uv run --frozen --no-sync guarddog-cached $(GUARDDOG_BUDGET_FLAG) $(FLAT_REQUIREMENTS_FILE); \
 	status=$$?; \
 	if [ $$status -eq 75 ]; then \
 		echo "UNFINISHED is not a pass. Note that make reports its own exit 2"; \
@@ -116,7 +130,7 @@ upgrade-safe:
 	echo "→ Tier 2 — GuardDog static analysis on candidate deps (cached)..."; \
 	mkdir -p $(dir $(FLAT_REQUIREMENTS_FILE)); \
 	uv export --frozen --no-hashes --all-groups -o $(FLAT_REQUIREMENTS_FILE) >/dev/null || exit 1; \
-	uv run guarddog-cached $(GUARDDOG_BUDGET_FLAG) $(FLAT_REQUIREMENTS_FILE); \
+	uv run --frozen --no-sync guarddog-cached $(GUARDDOG_BUDGET_FLAG) $(FLAT_REQUIREMENTS_FILE); \
 	status=$$?; \
 	if [ $$status -eq 130 ]; then exit 130; fi; \
 	if [ $$status -eq 75 ]; then \

@@ -24,6 +24,7 @@ from ai_common.security import guarddog_cached as gd
 SHIM = '''#!{python}
 import sys, json, os, time
 if len(sys.argv) == 2 and sys.argv[1] == "--version":
+    time.sleep({version_delay})
     print("{version}"); sys.exit(0)
 name = sys.argv[3]
 version = sys.argv[5]
@@ -136,8 +137,12 @@ def fake_guarddog(tmp_path):
     bin_dir.mkdir()
     shim = bin_dir / "guarddog"
 
-    def install(version: str = "2.10.0", delay: float = 0.0) -> Path:
-        shim.write_text(SHIM.format(python=sys.executable, version=version, delay=delay))
+    def install(version: str = "2.10.0", delay: float = 0.0,
+                version_delay: float = 0.0) -> Path:
+        # `delay` stalls a package scan; `version_delay` stalls `--version`,
+        # which the shim answers before reaching `delay` at all.
+        shim.write_text(SHIM.format(python=sys.executable, version=version, delay=delay,
+                                    version_delay=version_delay))
         shim.chmod(0o755)
         return bin_dir
 
@@ -871,6 +876,28 @@ def test_a_slow_scan_inside_the_timeout_still_passes(tmp_path, fake_guarddog, ca
 
     assert rc == 0
     assert "clean 1" in out
+
+
+def test_a_hanging_version_check_cannot_stall_the_sweep(tmp_path, fake_guarddog,
+                                                        cache_home, monkeypatch):
+    """`--version` runs before any package is looked at, so it blocks everything.
+
+    It touches no network and cannot stall on a dead socket the way a scan can,
+    but it does inherit whatever interpreter GuardDog is installed on — and a
+    wedged one there stops the sweep before it starts.
+    """
+    monkeypatch.setenv("PATH", f"{fake_guarddog(version_delay=30)}:/usr/bin:/bin")
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        gd.get_guarddog_version(timeout=0.5)
+
+
+def test_a_version_check_that_answers_is_not_disturbed_by_the_limit(tmp_path, fake_guarddog,
+                                                                    cache_home, monkeypatch):
+    """The bound must not cost a correct answer; 0.45s measured, 60s allowed."""
+    monkeypatch.setenv("PATH", f"{fake_guarddog(version='3.1.0')}:/usr/bin:/bin")
+
+    assert gd.get_guarddog_version() == "3.1.0"
 
 
 def test_a_timeout_of_zero_means_no_limit_rather_than_no_time(tmp_path, fake_guarddog,

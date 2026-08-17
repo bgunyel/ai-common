@@ -214,6 +214,15 @@ EXIT_UNFINISHED = 75
 #: INCOMPLETE that blocks the gate, which is the more expensive mistake.
 SCAN_TIMEOUT_SECONDS = 900.0
 
+#: Wall-clock limit for `guarddog --version`, in seconds.
+#:
+#: Its own constant rather than a share of `SCAN_TIMEOUT_SECONDS`, because the
+#: two bound different things. A scan fetches an artifact and may clone a
+#: repository; this reads a string out of a local process. Measured at 0.45s
+#: across three runs on this machine, so 60 leaves well over two orders of
+#: magnitude of headroom while still bounding a wedged interpreter.
+VERSION_TIMEOUT_SECONDS = 60.0
+
 
 # --- locations -----------------------------------------------------------
 
@@ -433,9 +442,24 @@ def waived_rules(accepted: dict, name: str, version: str) -> set[str]:
 
 # --- scanning and verdicts ----------------------------------------------
 
-def get_guarddog_version() -> str:
+def get_guarddog_version(timeout: float | None = VERSION_TIMEOUT_SECONDS) -> str:
+    """The GuardDog version every cache key and ledger entry is stamped with.
+
+    Bounded for the same reason `_scan_once` is, though not against the same
+    hazard: this call touches no network, so it cannot stall on a dead socket.
+    What it can do is inherit a broken interpreter — GuardDog's own sandbox
+    denied `/dev/urandom` to python-build-standalone builds, which killed the
+    process before `main()` — and a wedged one here stalls the sweep before a
+    single package is looked at.
+
+    A timeout is not caught: it propagates, as the `check=True` failure beside
+    it already does. That exits non-zero, which is the safe direction for a
+    gate — a sweep that cannot name its scanner must not run, because the
+    version is what every cache key is keyed on.
+    """
     out = subprocess.run(
-        ["guarddog", "--version"], capture_output=True, text=True, check=True
+        ["guarddog", "--version"], capture_output=True, text=True, check=True,
+        timeout=timeout,
     )
     return out.stdout.strip().splitlines()[0]
 

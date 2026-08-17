@@ -57,7 +57,10 @@ exclusive lock; and the file is replaced by rename.
 
 **Only complete scans are cached.** A scan that reported `errors` is
 re-run next time rather than frozen — a transient network failure should
-heal itself, and a permanent one should keep saying so.
+heal itself, and a permanent one should keep saying so. A scan that never
+returns at all is one of those transient failures, so each one is given
+`SCAN_TIMEOUT_SECONDS` and then killed: a sweep that blocks forever on a
+dead socket reports nothing, caches nothing and heals nothing.
 
 Raw reports
 -----------
@@ -189,6 +192,27 @@ RISK_FIELDS = (
 #: Ran out of time before scanning everything. Distinct from 1 (something
 #: actually failed the gate) so a caller can tell "not finished" from "no".
 EXIT_UNFINISHED = 75
+
+#: Wall-clock limit for one `guarddog pypi scan`, in seconds.
+#:
+#: GuardDog's `repository_integrity_mismatch` rule clones the upstream repo to
+#: compare it against the PyPI tarball, and calls `pygit2.clone_repository`
+#: with no timeout and no depth limit. When such a clone's connection dies
+#: without a FIN or RST — a NAT table dropping a long transfer, a changed
+#: route — the call blocks in `recv()` on a socket the kernel has no reason to
+#: time out: with nothing queued to send, TCP never retransmits and so never
+#: discovers the peer is gone. Seen as an 82-minute stall on `docling`, with
+#: four seconds of CPU, a half-written pack file, and an ESTABLISHED socket
+#: with no timers armed. The same package scanned in 138 seconds on the retry.
+#:
+#: `--time-budget` cannot cover this; it bounds when a scan *starts*. Only a
+#: per-scan limit bounds when one ends.
+#:
+#: The default is deliberately loose. Real scans on one machine ranged from
+#: 3 seconds (`orjson`) to 210 (`langchain-openrouter`), so this leaves better
+#: than 4x headroom for a slow day. Cutting a live scan short costs an
+#: INCOMPLETE that blocks the gate, which is the more expensive mistake.
+SCAN_TIMEOUT_SECONDS = 900.0
 
 
 # --- locations -----------------------------------------------------------
@@ -459,18 +483,34 @@ def _pypi_release_key(version: str) -> str | None:
     return canonical if canonical != version else None
 
 
-def _scan_once(name: str, version: str) -> tuple[dict, dict | None]:
+def _scan_once(name: str, version: str,
+               timeout: float | None = SCAN_TIMEOUT_SECONDS) -> tuple[dict, dict | None]:
     """Run one `guarddog pypi scan` and reduce it to (entry, raw report).
 
     The raw report is None when the output could not be read as one, which
     lets the caller tell "nothing worth storing" from "a report that has
     errors in it". Storing it is deliberately not done here: which version
     string a report is filed under is decided one level up.
+
+    `timeout` of None waits forever, which is what this call used to do
+    unconditionally; see `SCAN_TIMEOUT_SECONDS` for why that is a bug and
+    not a default.
     """
-    proc = subprocess.run(
-        ["guarddog", "pypi", "scan", name, "--version", version, "--output-format=json"],
-        capture_output=True, text=True,
-    )
+    try:
+        proc = subprocess.run(
+            ["guarddog", "pypi", "scan", name, "--version", version, "--output-format=json"],
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        # `run` kills the child and reaps it before this is raised. GuardDog
+        # clones in-process through pygit2 and spawns nothing of its own, so
+        # no grandchild is left holding the captured pipes open.
+        return {
+            "issues": 0,
+            "errors": {"guarddog-cached": f"no result after {timeout:g}s; scan killed"},
+            "risks": [],
+        }, None
+
     try:
         report = json.loads(proc.stdout)
     except json.JSONDecodeError:
@@ -544,7 +584,8 @@ def _scan_once(name: str, version: str) -> tuple[dict, dict | None]:
     }, report
 
 
-def scan_package(name: str, version: str, guarddog_version: str | None = None) -> dict:
+def scan_package(name: str, version: str, guarddog_version: str | None = None,
+                 timeout: float | None = SCAN_TIMEOUT_SECONDS) -> dict:
     """Scan one package and return the facts, never a judgement.
 
     A crash, a timeout or unparseable output all become an `errors` entry
@@ -557,7 +598,7 @@ def scan_package(name: str, version: str, guarddog_version: str | None = None) -
     finding. The argument is optional so that a caller exercising the
     trimming need not invent a version; the driver always passes one.
     """
-    entry, report = _scan_once(name, version)
+    entry, report = _scan_once(name, version, timeout)
 
     # A failed scan can mean only that we asked for a version string PyPI
     # does not use as a release key, so a second attempt against the
@@ -574,7 +615,7 @@ def scan_package(name: str, version: str, guarddog_version: str | None = None) -
     if entry["errors"]:
         alternative = _pypi_release_key(version)
         if alternative is not None:
-            retried, retried_report = _scan_once(name, alternative)
+            retried, retried_report = _scan_once(name, alternative, timeout)
             if not retried["errors"]:
                 entry, report = retried, retried_report
                 scanned_version = alternative
@@ -711,12 +752,22 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
              "completed scan is saved, so re-running continues where this left off. "
              "The budget bounds when a scan starts, not when it ends.",
     )
+    parser.add_argument(
+        "--scan-timeout", type=float, default=SCAN_TIMEOUT_SECONDS, metavar="SECONDS",
+        help=f"kill any single scan still running after SECONDS (default "
+             f"{SCAN_TIMEOUT_SECONDS:g}). A killed scan is INCOMPLETE rather than a "
+             f"pass, and is not cached, so the next run tries it again. 0 waits "
+             f"forever, which risks a sweep that never returns.",
+    )
     return parser.parse_args(argv[1:])
 
 
 def main(argv: list[str]) -> int:
     args = _parse_args(argv)
     budget = args.time_budget
+    # 0 is the explicit "wait forever" escape hatch, for the slow link where a
+    # real scan would outlast any defensible default.
+    scan_timeout = args.scan_timeout or None
 
     req_path = Path(args.requirements)
     print(f"Requirements file: {req_path}")
@@ -762,7 +813,7 @@ def main(argv: list[str]) -> int:
             else:
                 scanned += 1
                 print(f"[scanning] {label}", flush=True)
-                entry = scan_package(name, version, guarddog_version)
+                entry = scan_package(name, version, guarddog_version, scan_timeout)
                 # Only complete scans are cached. An incomplete one is a
                 # non-result; freezing it would be the very bug this
                 # wrapper exists to avoid.

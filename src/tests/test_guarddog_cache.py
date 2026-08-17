@@ -832,6 +832,61 @@ def test_without_a_budget_everything_is_scanned(tmp_path, fake_guarddog, cache_h
     assert "[skipped]" not in out
 
 
+# --- the per-scan timeout -------------------------------------------------
+#
+# A scan used to be able to block forever: GuardDog clones the upstream repo
+# through pygit2, which sets no timeout, and a connection that dies without a
+# FIN leaves the clone waiting on a socket the kernel never gives up on. One
+# such stall held a sweep for 82 minutes. The time budget does not help — it
+# bounds when a scan starts, not when it ends.
+
+def test_a_scan_that_never_returns_is_killed_rather_than_waited_on(tmp_path, fake_guarddog,
+                                                                   cache_home):
+    rc, out = run_project(tmp_path / "p", ["hung==1.0"], fake_guarddog(delay=30), cache_home,
+                          extra_args=["--scan-timeout", "0.5"])
+
+    assert rc == 1, "a scan that never returned was not treated as a failure"
+    assert "INCOMPLETE" in out
+    assert "scan killed" in out
+
+
+def test_a_killed_scan_is_not_cached_and_is_tried_again(tmp_path, fake_guarddog, cache_home):
+    """A dead connection is a transient failure, so it must not freeze a verdict."""
+    rc, _ = run_project(tmp_path / "p", ["hung==1.0"], fake_guarddog(delay=30), cache_home,
+                        extra_args=["--scan-timeout", "0.5"])
+    assert rc == 1
+    assert read_cache(cache_home)["entries"] == {}
+
+    rc, out = run_project(tmp_path / "p", ["hung==1.0"], fake_guarddog(), cache_home)
+
+    assert rc == 0
+    assert "[scanning] hung==1.0" in out
+    assert set(read_cache(cache_home)["entries"]) == {"hung==1.0@2.10.0"}
+
+
+def test_a_slow_scan_inside_the_timeout_still_passes(tmp_path, fake_guarddog, cache_home):
+    """Killing a live scan costs an INCOMPLETE, so the limit must not be eager."""
+    rc, out = run_project(tmp_path / "p", ["slow==1.0"], fake_guarddog(delay=0.3), cache_home,
+                          extra_args=["--scan-timeout", "30"])
+
+    assert rc == 0
+    assert "clean 1" in out
+
+
+def test_a_timeout_of_zero_means_no_limit_rather_than_no_time(tmp_path, fake_guarddog,
+                                                              cache_home):
+    """The escape hatch for a link too slow for any defensible default.
+
+    Handed straight to `subprocess.run`, 0 would kill every scan on the spot;
+    it has to become None on the way through.
+    """
+    rc, out = run_project(tmp_path / "p", ["slow==1.0"], fake_guarddog(delay=0.3), cache_home,
+                          extra_args=["--scan-timeout", "0"])
+
+    assert rc == 0
+    assert "clean 1" in out
+
+
 # --- the multi-project failures -------------------------------------------
 
 def test_concurrent_projects_do_not_clobber_each_other(tmp_path, fake_guarddog, cache_home):

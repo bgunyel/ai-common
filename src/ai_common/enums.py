@@ -21,6 +21,8 @@ class ModelNames(Enum): # Most used model names in alphabetical order
     """
     DEEPSEEK_V_3_2 = 'deepseek-v3.2'
     DEEPSEEK_V_4_FLASH = 'deepseek-v4-flash'
+    DEEPSEEK_V_4_FLASH_0731 = 'deepseek-v4-flash-0731'
+    DEEPSEEK_V_4_PRO_0813 = 'deepseek-v4-pro-0813'
 
     GEMINI_3_FLASH_PREVIEW = 'gemini-3-flash-preview'
     GEMINI_3_1_PRO_PREVIEW = 'gemini-3.1-pro-preview'
@@ -41,12 +43,16 @@ class ModelNames(Enum): # Most used model names in alphabetical order
 
     LLAMA_3_3_70B_VERSATILE = 'llama-3.3-70b-versatile'
 
+    MIMO_V_2_5 = 'mimo-v2.5'
+
     MINIMAX_M_2_5 = 'minimax-m2.5'
     MINIMAX_M_2_7 = 'minimax-m2.7'
 
     NEMOTRON_3_SUPER = 'nemotron-3-super'
 
     QWEN_3_5 = 'qwen-3.5'
+    QWEN_3_7_FLASH = 'qwen3.7-flash'
+    QWEN_3_8_27B = 'qwen3.8-27b'
 
 
 class TavilySearchCategory(Enum):

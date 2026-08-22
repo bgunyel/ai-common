@@ -21,6 +21,12 @@ MODEL_NAME_ALIAS_DICT = {
         ModelNames.DEEPSEEK_V_4_FLASH: {
             LlmServers.OPENROUTER: 'deepseek/deepseek-v4-flash'
         },
+        ModelNames.DEEPSEEK_V_4_FLASH_0731: {
+            LlmServers.OPENROUTER: 'deepseek/deepseek-v4-flash-0731'
+        },
+        ModelNames.DEEPSEEK_V_4_PRO_0813: {
+            LlmServers.OPENROUTER: 'deepseek/deepseek-v4-pro-0813'
+        },
         ModelNames.GEMINI_3_1_FLASH_LITE: {
             LlmServers.GOOGLE: 'gemini-3.1-flash-lite',
             LlmServers.OPENROUTER: 'google/gemini-3.1-flash-lite',
@@ -43,6 +49,9 @@ MODEL_NAME_ALIAS_DICT = {
         ModelNames.KIMI_K_2_5: {
             LlmServers.OLLAMA: 'kimi-k2.5:cloud'
         },
+        ModelNames.MIMO_V_2_5: {
+            LlmServers.OPENROUTER: 'xiaomi/mimo-v2.5'
+        },
         ModelNames.MINIMAX_M_2_5: {
             LlmServers.OLLAMA: 'minimax-m2.5:cloud'
         },
@@ -54,6 +63,12 @@ MODEL_NAME_ALIAS_DICT = {
         },
         ModelNames.QWEN_3_5: {
             LlmServers.OLLAMA: 'qwen3.5:397b-cloud'
+        },
+        ModelNames.QWEN_3_7_FLASH: {
+            LlmServers.OPENROUTER: 'qwen/qwen3.7-flash'
+        },
+        ModelNames.QWEN_3_8_27B: {
+            LlmServers.OPENROUTER: 'qwen/qwen3.8-27b'
         },
 
     }

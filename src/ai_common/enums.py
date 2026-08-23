@@ -28,8 +28,11 @@ class ModelNames(Enum): # Most used model names in alphabetical order
     GEMINI_3_1_PRO_PREVIEW = 'gemini-3.1-pro-preview'
     GEMINI_3_1_FLASH_LITE = 'gemini-3.1-flash-lite'
     GEMINI_3_5_FLASH = 'gemini-3.5-flash'
+    GEMINI_3_6_FLASH = 'gemini-3.6-flash'
+    GEMINI_3_7_FLASH = 'gemini-3.7-flash'
 
     GLM_5 = 'glm-5'
+    GLM_5_3 = 'glm-5.3'
 
     GPT_5 = 'gpt-5'
     GPT_5_MINI = 'gpt-5-mini-2025-08-07'
@@ -38,7 +41,10 @@ class ModelNames(Enum): # Most used model names in alphabetical order
     GPT_OSS_120B = 'gpt-oss-120b'
     GPT_OSS_20B = 'gpt-oss-20b'
 
+    GROK_4_6 = 'grok-4.6'
+
     KIMI_K2_0905 = 'kimi-k2-instruct-0905'
+    KIMI_K3 = 'kimi-k3'
     KIMI_K_2_5 = 'kimi-k2.5'
 
     LLAMA_3_3_70B_VERSATILE = 'llama-3.3-70b-versatile'
@@ -47,12 +53,15 @@ class ModelNames(Enum): # Most used model names in alphabetical order
 
     MINIMAX_M_2_5 = 'minimax-m2.5'
     MINIMAX_M_2_7 = 'minimax-m2.7'
+    MINIMAX_M_3 = 'minimax-m3'
 
     NEMOTRON_3_SUPER = 'nemotron-3-super'
 
     QWEN_3_5 = 'qwen-3.5'
     QWEN_3_7_FLASH = 'qwen3.7-flash'
     QWEN_3_8_27B = 'qwen3.8-27b'
+    QWEN_3_8_2_4T_A95B = 'qwen3.8-2.4t-a95b'
+    QWEN_3_8_MAX = 'qwen3.8-max'
 
 
 class TavilySearchCategory(Enum):

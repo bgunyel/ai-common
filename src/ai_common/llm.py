@@ -31,8 +31,17 @@ MODEL_NAME_ALIAS_DICT = {
             LlmServers.GOOGLE: 'gemini-3.1-flash-lite',
             LlmServers.OPENROUTER: 'google/gemini-3.1-flash-lite',
         },
+        ModelNames.GEMINI_3_6_FLASH: {
+            LlmServers.OPENROUTER: 'google/gemini-3.6-flash'
+        },
+        ModelNames.GEMINI_3_7_FLASH: {
+            LlmServers.OPENROUTER: 'google/gemini-3.7-flash'
+        },
         ModelNames.GLM_5: {
             LlmServers.OLLAMA: 'glm-5:cloud'
+        },
+        ModelNames.GLM_5_3: {
+            LlmServers.OPENROUTER: 'z-ai/glm-5.3'
         },
         ModelNames.GPT_OSS_120B: {
             LlmServers.GROQ: 'openai/gpt-oss-120b',
@@ -42,9 +51,15 @@ MODEL_NAME_ALIAS_DICT = {
             LlmServers.GROQ: 'openai/gpt-oss-20b',
             LlmServers.OLLAMA: 'gpt-oss:20b'
         },
+        ModelNames.GROK_4_6: {
+            LlmServers.OPENROUTER: 'x-ai/grok-4.6'
+        },
         ModelNames.KIMI_K2_0905: {
             LlmServers.GROQ: 'moonshotai/kimi-k2-instruct-0905',
             LlmServers.OLLAMA: 'kimi-k2:1t-cloud'
+        },
+        ModelNames.KIMI_K3: {
+            LlmServers.OPENROUTER: 'moonshotai/kimi-k3'
         },
         ModelNames.KIMI_K_2_5: {
             LlmServers.OLLAMA: 'kimi-k2.5:cloud'
@@ -58,6 +73,9 @@ MODEL_NAME_ALIAS_DICT = {
         ModelNames.MINIMAX_M_2_7: {
             LlmServers.OLLAMA: 'minimax-m2.7:cloud'
         },
+        ModelNames.MINIMAX_M_3: {
+            LlmServers.OPENROUTER: 'minimax/minimax-m3'
+        },
         ModelNames.NEMOTRON_3_SUPER: {
             LlmServers.OLLAMA: 'nemotron-3-super:cloud'
         },
@@ -69,6 +87,12 @@ MODEL_NAME_ALIAS_DICT = {
         },
         ModelNames.QWEN_3_8_27B: {
             LlmServers.OPENROUTER: 'qwen/qwen3.8-27b'
+        },
+        ModelNames.QWEN_3_8_2_4T_A95B: {
+            LlmServers.OPENROUTER: 'qwen/qwen3.8-2.4t-a95b'
+        },
+        ModelNames.QWEN_3_8_MAX: {
+            LlmServers.OPENROUTER: 'qwen/qwen3.8-max'
         },
 
     }
